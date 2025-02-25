@@ -47,6 +47,7 @@ Node* buildRangeTree(vector<Point> points){
 
 void queryRangeTree(Node* root, int x1, int x2, int y1, int y2, vector<Point> &result){
     if (!root) return;
+    // идем ток в левое поддерево
     if (root->xKey < x1){
         queryRangeTree(root->right, x1, x2, y1, y2, result);
     } 

@@ -1,0 +1,1 @@
+chislo 16, chislo 255, chislo 3, chislo 1025

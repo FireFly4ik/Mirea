@@ -8,7 +8,6 @@ struct Point {
     int x, y;
 };
 
-//структура нода
 struct Node {
     int xKey;
     vector<Point> yPoints;

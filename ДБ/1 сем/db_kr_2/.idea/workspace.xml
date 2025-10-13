@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="dda94fa0-e098-4391-b116-de789e068565" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/../../../FrontBack/1 sem/3-4 pr/img/card-1280.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../../FrontBack/1 sem/3-4 pr/img/card-640.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../../FrontBack/1 sem/3-4 pr/img/card-960.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../../FrontBack/1 sem/3-4 pr/img/hero-1920.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../../FrontBack/1 sem/3-4 pr/main.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../../FrontBack/1 sem/3-4 pr/styles.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/.env.example" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/db/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/db/config.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/db/database.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/db/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/db/requests.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/db/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/gui/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/gui/add_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/gui/connect_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/gui/logger_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/gui/main_window.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/gui/styles.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/gui/view_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/requirements.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../db_kr_1/test_data.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../../Технологии индустриального программирования/3 сем/21.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../../.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../../.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../Системы искусственного интеллекта и большие данные/1 сем/Galanov_A_Workbook2.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/../../../Системы искусственного интеллекта и большие данные/1 сем/Galanov_A_Workbook2.ipynb" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../../.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 1
+}</component>
+  <component name="ProjectId" id="33HwmK9oJk88qlCqO6sOcHcacJW" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.suckMyBalls.executor&quot;: &quot;Run&quot;,
+    &quot;Python.temp.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/firefly4ik/Codes/Mirea/ДБ/1 сем/db_kr_2&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Python.suckMyBalls">
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="db_kr_2" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="suckMyBalls" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="db_kr_2" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/suckMyBalls.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.suckMyBalls" />
+        <item itemvalue="Python.main" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-PY-242.23339.19" />
+        <option value="bundled-python-sdk-0029f7779945-399fe30bd8c1-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.23339.19" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="dda94fa0-e098-4391-b116-de789e068565" name="Changes" comment="" />
+      <created>1758987462989</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1758987462989</updated>
+      <workItem from="1758987464607" duration="2632000" />
+      <workItem from="1759061119099" duration="319000" />
+      <workItem from="1759127137987" duration="799000" />
+      <workItem from="1759651414551" duration="8000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName=".env" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/db_kr_2$temp.coverage" NAME="temp Coverage Results" MODIFIED="1759061315743" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/db_kr_2$main.coverage" NAME="main Coverage Results" MODIFIED="1759061183744" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/db_kr_2$suckMyBalls.coverage" NAME="suckMyBalls Coverage Results" MODIFIED="1759127812910" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+  </component>
+</project>

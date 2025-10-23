@@ -19,11 +19,48 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5668ccfb-c460-4331-8e8c-c2decb1c8482" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FrontBack/1 sem/2kr/assets/Резюме.pdf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FrontBack/1 sem/2kr/images/github.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FrontBack/1 sem/2kr/images/icons/icon.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FrontBack/1 sem/2kr/images/mirea.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FrontBack/1 sem/2kr/images/yandex.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FrontBack/1 sem/2kr/images/youtube.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FrontBack/1 sem/2kr/index.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FrontBack/1 sem/2kr/styles/main.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/internal/handlers/delivery/delivRoutes.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/internal/handlers/delivery/makeOrder.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Алгоритмы/2 семестр/ПР1/10" beforeDir="false" afterPath="$PROJECT_DIR$/Алгоритмы/2 семестр/ПР1/10" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Алгоритмы/2 семестр/ПР1/10.dSYM/Contents/Resources/DWARF/10" beforeDir="false" afterPath="$PROJECT_DIR$/Алгоритмы/2 семестр/ПР1/10.dSYM/Contents/Resources/DWARF/10" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr" beforeDir="false" afterPath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr/.idea/3-4 pr.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr/about.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr/assets/favicon.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr/contacts.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr/index.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr/main.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr/main.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr/styles.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/Fusion" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/Fusion" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/Fusion/apps/delivery/internal/delivery/service.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/delivery/internal/delivery/service.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/Fusion/apps/delivery/internal/models/market.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/delivery/internal/models/market.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/Fusion/apps/delivery/internal/models/market_product.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/delivery/internal/models/market_product.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/Fusion/apps/delivery/internal/models/order.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/delivery/internal/models/order.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/Fusion/apps/delivery/internal/models/order_items.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/delivery/internal/models/order_items.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/cmd/api/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/cmd/api/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/internal/config/config.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/internal/config/config.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/internal/handlers/delivery/addProductToMarket.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/internal/handlers/delivery/addProductToMarket.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/internal/handlers/products-admin/BulkUpdatePrices.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/internal/handlers/products-admin/BulkUpdatePrices.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/internal/handlers/products-admin/proAdmRoutes.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/internal/handlers/products-admin/proAdmRoutes.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/internal/rpc/deliv.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/Fusion/apps/gateway/internal/rpc/deliv.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/cafeAPI" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/cafeAPI" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/cafeAPI/data.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/cafeAPI/data.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/cafeAPI/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/cafeAPI/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/cafeAPI/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/cafeAPI/go.sum" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/cafeAPI/handlers.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/cafeAPI/handlers.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/cafeAPI/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/cafeAPI/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Элитка/cafeAPI/structReferences.go" beforeDir="false" afterPath="$PROJECT_DIR$/Элитка/cafeAPI/structReferences.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,6 +69,14 @@
   </component>
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="HTML File" />
+        <option value="CSS File" />
+      </list>
+    </option>
   </component>
   <component name="GOROOT" url="file:///usr/local/go" />
   <component name="Git.Settings">
@@ -202,7 +247,6 @@
   &quot;associatedIndex&quot;: 0
 }</component>
   <component name="ProjectId" id="2tLFET6Q6INtFzXBRDxgcy8YFoU" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -210,8 +254,12 @@
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
     &quot;C/C++ File.B.cpp.executor&quot;: &quot;Run&quot;,
+    &quot;DefaultHtmlFileTemplate&quot;: &quot;HTML File&quot;,
+    &quot;JavaScript Debug.index.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.projects.html.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.RadMigrateCodeStyle&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
@@ -220,19 +268,33 @@
     &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
     &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;go.import.settings.migrated&quot;: &quot;true&quot;,
     &quot;go.sdk.automatically.set&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/firefly4ik/Codes/Mirea&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/firefly4ik/Codes/Mirea/FrontBack/1 sem/2kr/assets&quot;,
+    &quot;list.type.of.created.stylesheet&quot;: &quot;CSS&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;project.propVCSSupport.DirectoryMappings&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.keymap&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/FrontBack/1 sem/2kr/assets" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/FrontBack/1 sem/2kr/images/icons" />
+      <recent name="$PROJECT_DIR$/FrontBack/1 sem/2kr" />
+      <recent name="$PROJECT_DIR$/FrontBack/1 sem/2kr/src/img" />
+    </key>
+  </component>
   <component name="RunManager">
     <configuration name="B.cpp" type="CppFileRunConfiguration" factoryName="CppFileRunConfiguration" temporary="true" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Mirea" TARGET_NAME="B.cpp" CONFIG_NAME="B.cpp">
       <option name="sourceFile" value="Спорт программирование/Educational Codeforces Round 175/B.cpp" />
@@ -240,17 +302,11 @@
         <option name="com.jetbrains.cidr.cpp.runfile.CppFileBuildBeforeRunTaskProvider$BasicBuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <recent_temporary>
-      <list>
-        <item itemvalue="C/C++ File.B.cpp" />
-      </list>
-    </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-gosdk-5df93f7ad4aa-df9ad98b711f-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-242.21829.165" />
-        <option value="bundled-js-predefined-d6986cc7102b-7c0b70fcd90d-JavaScript-GO-242.21829.165" />
+        <option value="bundled-js-predefined-d6986cc7102b-b598e85cdad2-JavaScript-WS-252.25557.126" />
       </set>
     </attachedChunks>
   </component>
@@ -265,6 +321,13 @@
       <workItem from="1740670454478" duration="1830000" />
       <workItem from="1740723357765" duration="68000" />
       <workItem from="1740757340951" duration="3000" />
+      <workItem from="1760596187365" duration="24000" />
+      <workItem from="1760596972367" duration="533000" />
+      <workItem from="1760597517264" duration="7675000" />
+      <workItem from="1761062410050" duration="2118000" />
+      <workItem from="1761135085561" duration="2321000" />
+      <workItem from="1761139370783" duration="39000" />
+      <workItem from="1761201287826" duration="366000" />
     </task>
     <servers />
   </component>
@@ -279,26 +342,5 @@
   <component name="VgoProject">
     <integration-enabled>false</integration-enabled>
     <settings-migrated>true</settings-migrated>
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Спорт программирование/Educational Codeforces Round 175/B.cpp</url>
-          <line>15</line>
-          <option name="timeStamp" value="3" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Спорт программирование/Educational Codeforces Round 175/B.cpp</url>
-          <line>34</line>
-          <option name="timeStamp" value="5" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/Спорт программирование/Educational Codeforces Round 175/B.cpp</url>
-          <line>54</line>
-          <option name="timeStamp" value="9" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
   </component>
 </project>

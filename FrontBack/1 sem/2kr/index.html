@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Главная - Портфолио</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="styles/main.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body>
+    <div class="container fixed-top">
+        <header class="d-flex flex-wrap justify-content-center py-3 mb-4 border-bottom">
+            <div class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-body-emphasis text-decoration-none">
+                <svg class="bi me-2" width="40" height="32" aria-hidden="true">
+                    <use xlink:href="src/img/icon.svg"></use>
+                </svg>
+                <span class="fs-4">Галанов А. В.</span>
+            </div>
+            <ul class="nav nav-pills">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link active" aria-current="page">Главная</a>
+                </li>
+                <li class="nav-item">
+                    <a href="pages/projects.html" class="nav-link">Проекты</a>
+                </li>
+                <li class="nav-item">
+                    <a href="pages/diary.html" class="nav-link">Дневник</a>
+                </li>
+                <li class="nav-item">
+                    <a href="pages/contacts.html" class="nav-link">Контакты</a>
+                </li>
+            </ul>
+        </header>
+    </div>
+
+    <main>
+        <div class="container col-xxl-8 px-4 py-5">
+            <div class="row flex-lg-row-reverse align-items-center g-5 py-5">
+                <div class="col-10 col-sm-8 col-lg-6">
+                    <img src="images/mirea.jpg" class="d-block mx-lg-auto img-fluid" alt="Mirea" width="700" height="500" loading="lazy">
+                </div>
+                <div class="col-lg-6">
+                    <h1 class="display-5 fw-bold text-body-emphasis lh-1 mb-3">О себе</h1>
+                    <p class="lead">Привет! Меня зовут Андрей Галанов, я студент группы ЭФБО-03-24. Увлекаюсь backend и в данный момент занимаюсь frontend, так как делаю этот сайт.</p>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                        <a href="assets/Резюме.pdf" download class="btn btn-primary btn-lg px-4 me-md-2">Скачать резюме</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="border"></div>
+
+        <div class="container col-xxl-8 px-4 py-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h3 class="card-title h4 mb-0">
+                        <i class="bi bi-tools text-primary"></i>
+                        Мои навыки
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1 bold">
+                                    <span>HTML/CSS</span>
+                                    <span class="text-primary">90%</span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar bg-primary" style="width: 90%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1 bold">
+                                    <span>JavaScript</span>
+                                    <span class="text-primary">75%</span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar bg-info" style="width: 75%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1 bold">
+                                    <span>Bootstrap</span>
+                                    <span class="text-primary">85%</span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar bg-success" style="width: 85%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1 bold">
+                                    <span>React</span>
+                                    <span class="text-primary">70%</span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar bg-warning" style="width: 70%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="border"></div>
+
+        <div class="container px-4 py-5" id="custom-cards">
+            <h2 class="pb-2 border-bottom">Мои проекты</h2>
+            <div class="row row-cols-1 row-cols-lg-3 align-items-stretch g-4 py-5">
+                <div class="col">
+                    <div class="card card-cover h-100 overflow-hidden text-bg-dark rounded-4 shadow-lg" style="background-image: url('images/youtube.png');">
+                        <div class="d-flex flex-column h-100 p-5 pb-3 text-white text-shadow-1">
+                            <h3 class="pt-5 mt-5 mb-4 display-6 lh-1 fw-bold">Ютубчик</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card card-cover h-100 overflow-hidden text-bg-dark rounded-4 shadow-lg" style="background-image: url('images/github.png');">
+                        <div class="d-flex flex-column h-100 p-5 pb-3 text-white text-shadow-1">
+                            <h3 class="pt-5 mt-5 mb-4 display-6 lh-1 fw-bold">Гиточек</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card card-cover h-100 overflow-hidden text-bg-dark rounded-4 shadow-lg" style="background-image: url('images/yandex.png');">
+                        <div class="d-flex flex-column h-100 p-5 pb-3 text-shadow-1">
+                            <h3 class="pt-5 mt-5 mb-4 display-6 lh-1 fw-bold">Яндексик</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="border"></div>
+
+        <div class="container">
+            <footer class="py-3 my-4">
+                <ul class="nav justify-content-center border-bottom pb-3 mb-3">
+                    <li class="nav-item"><a href="index.html" class="nav-link px-2 text-body-secondary">Главная</a></li>
+                    <li class="nav-item"><a href="pages/projects.html" class="nav-link px-2 text-body-secondary">Проекты</a></li>
+                    <li class="nav-item"><a href="pages/diary.html" class="nav-link px-2 text-body-secondary">Дневник</a></li>
+                    <li class="nav-item"><a href="pages/contacts.html" class="nav-link px-2 text-body-secondary">Контакты</a></li>
+                </ul>
+                <p class="text-center text-body-secondary">© 2025</p>
+            </footer>
+        </div>
+    </main>
+</body>
+</html>

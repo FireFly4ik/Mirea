@@ -2,5 +2,12 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/FrontBack/1 sem/1-2 pr" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/ДБ/1 сем/db_kr_1" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/Дискретка/2 сем/КР1" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/Элитка/Fusion" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/Элитка/HypeOrStrem" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/Элитка/cafeAPI" vcs="Git" />
   </component>
 </project>

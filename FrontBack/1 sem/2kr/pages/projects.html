@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проекты - Портфолио</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../styles/main.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body>
+    <div class="container fixed-top">
+        <header class="d-flex flex-wrap justify-content-center py-3 mb-4 border-bottom">
+            <div class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-body-emphasis text-decoration-none">
+                <svg class="bi me-2" width="40" height="32" aria-hidden="true">
+                    <use xlink:href="../images/icons/icon.svg"></use>
+                </svg>
+                <span class="fs-4">Галанов А. В.</span>
+            </div>
+            <ul class="nav nav-pills">
+                <li class="nav-item">
+                    <a href="../index.html" class="nav-link">Главная</a>
+                </li>
+                <li class="nav-item">
+                    <a href="projects.html" class="nav-link active" aria-current="page">Проекты</a>
+                </li>
+                <li class="nav-item">
+                    <a href="diary.html" class="nav-link">Дневник</a>
+                </li>
+                <li class="nav-item">
+                    <a href="contacts.html" class="nav-link">Контакты</a>
+                </li>
+            </ul>
+        </header>
+    </div>
+
+    <main class="container" style="padding-top: 80px;">
+        <div class="py-5">
+            <h1 class="text-center mb-5">Мои проекты</h1>
+            <div class="text-center mb-4">
+                <div class="btn-group" role="group" id="filter-buttons">
+                    <button type="button" class="btn btn-outline-primary active" data-filter="all">Все</button>
+                    <button type="button" class="btn btn-outline-primary" data-filter="go">Go</button>
+                    <button type="button" class="btn btn-outline-primary" data-filter="assembler">Assembler</button>
+                    <button type="button" class="btn btn-outline-primary" data-filter="html/css">HTML/CSS</button>
+                </div>
+            </div>
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                <div class="col project-card" data-tech="go, assembler">
+                    <div class="card h-100 shadow-sm" data-bs-toggle="modal" data-bs-target="#projectModal" data-title="Ютубчик" data-description="Клон популярного видеохостинга.">
+                        <div class="card-body">
+                            <h5 class="card-title">Ютубчик</h5>
+                            <p class="card-text">Go, Assembler</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col project-card" data-tech="html/css">
+                    <div class="card h-100 shadow-sm" data-bs-toggle="modal" data-bs-target="#projectModal" data-title="Гиточек" data-description="Платформа для совместной разработки.">
+                        <div class="card-body">
+                            <h5 class="card-title">Гиточек</h5>
+                            <p class="card-text">HTML/CSS</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col project-card" data-tech="assembler">
+                    <div class="card h-100 shadow-sm" data-bs-toggle="modal" data-bs-target="#projectModal" data-title="Яндексик" data-description="Поисковая система и сервисы.">
+                        <div class="card-body">
+                            <h5 class="card-title">Яндексик</h5>
+                            <p class="card-text">Assembler</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col project-card" data-tech="go, html/css">
+                    <div class="card h-100 shadow-sm" data-bs-toggle="modal" data-bs-target="#projectModal" data-title="Todo-приложение" data-description="Простое приложение для управления задачами.">
+                        <div class="card-body">
+                            <h5 class="card-title">Todo-приложение</h5>
+                            <p class="card-text">Go, HTML/CSS</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col project-card" data-tech="assembler, html/css, go">
+                    <div class="card h-100 shadow-sm" data-bs-toggle="modal" data-bs-target="#projectModal" data-title="Интернет-магазин" data-description="Магазин с каталогом товаров и корзиной.">
+                        <div class="card-body">
+                            <h5 class="card-title">Интернет-магазин</h5>
+                            <p class="card-text">Assembler, Go, HTML/CSS</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Модальное окно -->
+    <div class="modal fade" id="projectModal" tabindex="-1" aria-labelledby="projectModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="projectModalLabel">Название проекта</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="projectDescription">Здесь будет полное описание проекта, скриншоты и другая информация.</p>
+                </div>
+                <div class="modal-footer">
+                    <a href="#" class="btn btn-primary" id="liveLink" target="_blank">Смотреть</a>
+                    <a href="#" class="btn btn-secondary" id="sourceLink" target="_blank">Исходный код</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <footer class="py-3 my-4">
+            <ul class="nav justify-content-center border-bottom pb-3 mb-3">
+                <li class="nav-item"><a href="../index.html" class="nav-link px-2 text-body-secondary">Главная</a></li>
+                <li class="nav-item"><a href="projects.html" class="nav-link px-2 text-body-secondary">Проекты</a></li>
+                <li class="nav-item"><a href="diary.html" class="nav-link px-2 text-body-secondary">Дневник</a></li>
+                <li class="nav-item"><a href="contacts.html" class="nav-link px-2 text-body-secondary">Контакты</a></li>
+            </ul>
+            <p class="text-center text-body-secondary">© 2025</p>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const projectModal = document.getElementById('projectModal');
+            projectModal.addEventListener('show.bs.modal', event => {
+                const card = event.relatedTarget;
+                const title = card.getAttribute('data-title');
+                const description = card.getAttribute('data-description');
+                
+                const modalTitle = projectModal.querySelector('.modal-title');
+                const modalDescription = projectModal.querySelector('#projectDescription');
+                
+                modalTitle.textContent = title;
+                modalDescription.textContent = description;
+            });
+
+            const filterButtonsContainer = document.getElementById('filter-buttons');
+            const projectCards = document.querySelectorAll('.project-card');
+
+            filterButtonsContainer.addEventListener('click', (event) => {
+                if (event.target.tagName !== 'BUTTON') return;
+
+                const filter = event.target.getAttribute('data-filter');
+
+                const currentActiveButton = filterButtonsContainer.querySelector('.active');
+                if (currentActiveButton) {
+                    currentActiveButton.classList.remove('active');
+                }
+                event.target.classList.add('active');
+
+                projectCards.forEach(card => {
+                    if (filter === 'all' || card.getAttribute('data-tech').includes(filter)) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

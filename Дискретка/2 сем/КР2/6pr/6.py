@@ -1,15 +1,32 @@
 import math
 import random
+import time
 
 
-def sieve_of_eratosthenes(limit):
+def visualize_sieve(limit):
     sieve = [True] * (limit + 1)
     sieve[0:2] = [False, False]
+    steps = []
+
     for current in range(2, int(math.sqrt(limit)) + 1):
         if sieve[current]:
-            for multiple in range(current * current, limit + 1, current):
+            multiples = list(range(current * current, limit + 1, current))
+            for multiple in multiples:
                 sieve[multiple] = False
-    return [i for i, is_prime in enumerate(sieve) if is_prime]
+            steps.append(f"Вычеркиваем кратные {current}: {multiples}")
+
+    primes = [i for i, is_prime in enumerate(sieve) if is_prime]
+
+    with open("eratosthenes_sieve_visualization.txt", "w", encoding="utf-8") as f:
+        f.write(f"Визуализация решета Эратосфена для чисел до {limit}:\n")
+        f.write("=" * 50 + "\n")
+        for i, step in enumerate(steps, 1):
+            f.write(f"Шаг {i}: {step}\n")
+        f.write("=" * 50 + "\n")
+        f.write(f"Найдено простых чисел: {len(primes)}\n")
+        f.write(f"Простые числа: {primes}\n")
+
+    return steps, primes
 
 
 def fermat_factorization(n):
@@ -246,14 +263,35 @@ def direct_primality_check(n):
     return True
 
 
+def benchmark_tests(n, iterations=5):
+    tests = [
+        ('Соловей-Штрассен', lambda: solovay_strassen_test(n, iterations)),
+        ('Леманн', lambda: lehmann_test(n, iterations)),
+        ('Рабин-Миллер', lambda: rabin_miller_test(n, iterations)),
+        ('Прямая проверка', lambda: direct_primality_check(n))
+    ]
+
+    print(f"\nБенчмарк тестов для числа {n}:")
+    results = {}
+
+    for test_name, test_func in tests:
+        start_time = time.time()
+        result = test_func()
+        end_time = time.time()
+
+        duration = end_time - start_time
+        results[test_name] = (result, duration)
+        print(f"  {test_name}: {duration:.6f} сек - {'Простое' if result else 'Составное'}")
+
+    fastest_test = min(results.items(), key=lambda x: x[1][1])
+    print(f"  🏆 Самый быстрый: {fastest_test[0]} ({fastest_test[1][1]:.6f} сек)")
+
+    return results
+
 if __name__ == "__main__":
     print("1. Решето Эратосфена для чисел < 256: ")
-    primes = sieve_of_eratosthenes(255)
+    primes = visualize_sieve(255)
     print(primes)
-
-    with open(f"eratosthenes_sieve.txt", 'w', encoding='utf-8') as f:
-        f.write("Простые числа < 256:\n")
-        f.write(", ".join(map(str, primes)))
 
     print("\n2. Метод Ферма для проверки и разложения (введите ваши числа через пробел): ")
     test_numbers = [int(i) for i in input().split()]
@@ -298,3 +336,7 @@ if __name__ == "__main__":
         print(f"Непосредственная проверка: {direct_result}")
 
         print("=" * 60)
+
+    print("\n4. Бенчмарк производительности:")
+    for num in test_numbers[-2:]:
+        benchmark_tests(num, iters)

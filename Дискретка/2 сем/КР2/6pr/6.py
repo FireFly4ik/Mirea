@@ -26,7 +26,7 @@ def visualize_sieve(limit):
         f.write(f"Найдено простых чисел: {len(primes)}\n")
         f.write(f"Простые числа: {primes}\n")
 
-    return steps, primes
+    return primes
 
 
 def fermat_factorization(n):

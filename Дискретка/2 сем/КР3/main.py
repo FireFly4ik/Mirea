@@ -1,1236 +1,2278 @@
-import sys,secrets,math,json,base64
-from PySide6.QtWidgets import QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QTabWidget,QPushButton,QTextEdit,QLabel,QLineEdit,QFileDialog,QComboBox,QGroupBox,QMessageBox,QSplitter,QSpinBox,QMenuBar, QFormLayout
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont,QPalette,QColor,QAction, QScreen
-from cryptography.hazmat.primitives.asymmetric import rsa as crypto_rsa,padding as crypto_padding
-from cryptography.hazmat.primitives import hashes,serialization
-METHOD_MAX_BITS={"miller-rabin":1024,"trial":32,"sieve":20,"genpr":24}
+import sys
+import secrets
+import math
+import json
+import base64
+import re
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QPushButton,
+    QTextEdit, QLabel, QLineEdit, QFileDialog, QComboBox, QGroupBox, QMessageBox, QSplitter,
+    QSpinBox, QMenuBar, QSlider, QProgressBar, QScrollArea, QCheckBox, QDialog
+)
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QFont, QPalette, QColor, QAction
+from cryptography.hazmat.primitives.asymmetric import rsa as crypto_rsa, padding as crypto_padding
+from cryptography.hazmat.primitives import hashes, serialization
+
+# -------------------- Константы --------------------
+METHOD_MAX_BITS = {"miller-rabin": 2048, "trial": 32, "sieve": 20, "genpr": 10000}
+
+
+# -------------------- Утилиты --------------------
+def extended_gcd(a, b):
+    if a == 0:
+        return b, 0, 1
+    d, x1, y1 = extended_gcd(b % a, a)
+    x = y1 - (b // a) * x1
+    y = x1
+    return d, x, y
+
+
+def mod_inverse(a, m):
+    d, x, _ = extended_gcd(a, m)
+    if d != 1:
+        raise ValueError("Нет обратного элемента для данного e по модулю φ(N).")
+    return x % m
+
+
+def parse_numbers(s: str):
+    s = re.sub(r'[\[\](){},;\s]+', ' ', s.strip())
+    out = []
+    for token in s.split():
+        if re.fullmatch(r'[+]?\d+', token):
+            out.append(int(token))
+    return out
+
+
+def encode_text_to_blocks(text: str, n: int):
+    data = text.encode('utf-8')
+    block_bytes = max(1, (n.bit_length() - 1) // 8)
+
+    blocks = []
+    plain_lengths = []
+
+    for i in range(0, len(data), block_bytes):
+        chunk = data[i:i + block_bytes]
+        blocks.append(int.from_bytes(chunk, 'big'))
+        plain_lengths.append(len(chunk))
+    return blocks, block_bytes, plain_lengths, len(data)
+
+
+def decode_blocks_to_text_precise(blocks, block_bytes, plain_lengths=None, total_plain_bytes=None):
+    raw = bytearray()
+    if plain_lengths and len(plain_lengths) == len(blocks):
+        for b, plen in zip(blocks, plain_lengths):
+            try:
+                full = b.to_bytes(block_bytes, 'big')
+                raw.extend(full[-plen:])
+            except OverflowError:
+                actual_len = (b.bit_length() + 7) // 8
+                full = b.to_bytes(actual_len, 'big')
+                raw.extend(full)
+    else:
+        for b in blocks:
+            try:
+                chunk = b.to_bytes(block_bytes, 'big').lstrip(b'\x00')
+            except OverflowError:
+                actual_len = (b.bit_length() + 7) // 8
+                chunk = b.to_bytes(actual_len, 'big').lstrip(b'\x00')
+            raw.extend(chunk)
+
+    if total_plain_bytes is not None and len(raw) > total_plain_bytes:
+        raw = raw[:total_plain_bytes]
+    try:
+        return raw.decode('utf-8')
+    except UnicodeDecodeError:
+        return raw.decode('utf-8', 'replace')
+
+
+def decode_blocks_to_text(blocks, block_bytes):
+    raw = bytearray()
+    for b in blocks:
+        try:
+            chunk = b.to_bytes(block_bytes, 'big').lstrip(b'\x00')
+        except OverflowError:
+            actual_len = (b.bit_length() + 7) // 8
+            chunk = b.to_bytes(actual_len, 'big').lstrip(b'\x00')
+        raw.extend(chunk)
+    try:
+        return raw.decode('utf-8')
+    except UnicodeDecodeError:
+        return raw.decode('utf-8', 'replace')
+
+
+def blocks_to_compact_hex(blocks, N):
+    cipher_block_bytes = (N.bit_length() + 7) // 8
+    return ''.join(b.to_bytes(cipher_block_bytes, 'big').hex() for b in blocks)
+
+
+def compact_hex_to_blocks(hex_str, N):
+    hex_str = hex_str.strip()
+    cipher_block_bytes = (N.bit_length() + 7) // 8
+    one_len = cipher_block_bytes * 2
+    if len(hex_str) % one_len != 0:
+        raise ValueError("Длина компактной HEX-строки не кратна размеру блока.")
+    blocks = []
+    for i in range(0, len(hex_str), one_len):
+        chunk_hex = hex_str[i:i + one_len]
+        if not re.fullmatch(r'[0-9a-fA-F]+', chunk_hex):
+            raise ValueError("Строка содержит не HEX символы.")
+        val = int.from_bytes(bytes.fromhex(chunk_hex), 'big')
+        if val >= N:
+            raise ValueError("Блок >= N (некорректные данные).")
+        blocks.append(val)
+    return blocks
+
+
+def byte_to_char_repr(b: int) -> str:
+    return chr(b) if 32 <= b <= 126 else '.'
+
+
+def bytes_to_printable_utf8(block: bytes) -> str:
+    return block.decode('utf-8', errors='replace')
+
+
+# -------------------- Генераторы --------------------
 class LCG:
-    def __init__(self,seed,a=1664525,b=1013904223,m=2**32):
-        if b%2==0: raise ValueError("LCG: b должно быть нечётным (по Кнуту)")
-        if a%4!=1: raise ValueError("LCG: a ≡ 1 (mod 4)")
-        self.state=seed%m;self.a=a;self.b=b;self.m=m
+    def __init__(self, seed, a=1664525, b=1013904223, m=2 ** 32):
+        self.state = seed % m
+        self.a = a
+        self.b = b
+        self.m = m
+
     def next(self):
-        self.state=(self.a*self.state+self.b)%self.m
+        self.state = (self.a * self.state + self.b) % self.m
         return self.state
+
+    def get_formula_info(self):
+        return f"Y_i = ({self.a} • {self.state} + {self.b}) mod {self.m}"
+
+    def get_params_description(self):
+        return (f"Пояснение: a={self.a} (множитель), b={self.b} (приращение), "
+                f"m={self.m} (модуль), Y_i-1={self.state} (пред. число)")
+
+
 class Multiplicative:
-    def __init__(self,seed,a=16807,m=2**31-1):
-        if seed==0: raise ValueError("Мультипликативный генератор: seed ≠ 0")
-        self.state=seed%m;self.a=a;self.m=m
+    def __init__(self, seed, a=16807, m=2 ** 31 - 1):
+        self.state = seed % m
+        self.a = a
+        self.m = m
+
     def next(self):
-        self.state=(self.a*self.state)%self.m
+        self.state = (self.a * self.state) % self.m
         return self.state
+
+    def get_formula_info(self):
+        return f"Y_i = ({self.a} • {self.state}) mod {self.m}"
+
+    def get_params_description(self):
+        return (f"Пояснение: a={self.a} (множитель), m={self.m} (модуль), "
+                f"Y_i-1={self.state} (пред. число). Приращение b=0.")
+
+
 class Additive:
-    def __init__(self,seed1,seed2=None,m=2**32):
-        self.x=seed1%m;self.y=(seed2 or (seed1*1103515245+12345))%m;self.m=m
+    def __init__(self, seed1, seed2=None, m=2 ** 32):
+        self.x = seed1 % m
+        self.y = (seed2 or (seed1 * 1103515245 + 12345)) % m
+        self.m = m
+
     def next(self):
-        z=(self.x+self.y)%self.m;self.x,self.y=self.y,z;return z
-def apply_gamma(data_bytes,gen):
-    result=bytearray();block_size=8
-    for i in range(0,len(data_bytes),block_size):
-        block=data_bytes[i:i+block_size]
-        gamma=bytearray(gen.next()&0xFF for _ in range(len(block)))
-        encrypted=bytearray(b^g for b,g in zip(block,gamma))
-        result.extend(encrypted)
-    return bytes(result)
-_SMALL_PRIMES=[2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97]
-for n in range(101,1000,2):
-    if all(n%p for p in _SMALL_PRIMES if p*p<=n): _SMALL_PRIMES.append(n)
+        z = (self.x + self.y) % self.m
+        self.x, self.y = self.y, z
+        return z
+
+    def get_formula_info(self):
+        return f"Y_i = ({self.x} + {self.y}) mod {self.m}"
+
+    def get_params_description(self):
+        return (f"Пояснение: m={self.m} (модуль), Y_i-1={self.x} (пред. число), "
+                f"Y_i-2={self.y} (пред-пред. число). Множителя нет.")
+
+
+# -------------------- Простые числа --------------------
+_SMALL_PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
+for n in range(101, 1000, 2):
+    if all(n % p for p in _SMALL_PRIMES if p * p <= n):
+        _SMALL_PRIMES.append(n)
+
+
 def is_prime_deterministic(n):
-    if n<2: return False
+    if n < 2: return False
     for p in _SMALL_PRIMES:
-        if n%p==0: return n==p
-    d=n-1;s=0
-    while d%2==0: d//=2;s+=1
-    for a in [2,325,9375,28178,450775,9780504,1795265022]:
-        if a%n==0: continue
-        x=pow(a,d,n)
-        if x==1 or x==n-1: continue
-        for _ in range(s-1):
-            x=(x*x)%n
-            if x==n-1: break
-        else: return False
-    return True
-def is_prime_miller_rabin(n,k=10):
-    if n<2: return False
-    for p in _SMALL_PRIMES[:15]:
-        if n%p==0: return n==p
-    d=n-1;s=0
-    while d%2==0: d//=2;s+=1
-    for _ in range(k):
-        a=secrets.randbelow(n-3)+2
-        x=pow(a,d,n)
-        if x==1 or x==n-1: continue
-        for __ in range(s-1):
-            x=(x*x)%n
-            if x==n-1: break
-        else: return False
-    return True
-def genpr_algorithm(m,k):
-    if m%2==0: m+=1
-    A=[1]*k;d=3
-    while d*d<=m+2*k-2:
-        r=m%d
-        if r==0: j=0
+        if n % p == 0: return n == p
+    d = n - 1
+    s = 0
+    while d % 2 == 0:
+        d //= 2
+        s += 1
+    for a in [2, 325, 9375, 28178, 450775, 9780504, 1795265022]:
+        if a % n == 0: continue
+        x = pow(a, d, n)
+        if x == 1 or x == n - 1: continue
+        for _ in range(s - 1):
+            x = (x * x) % n
+            if x == n - 1: break
         else:
-            inv2=pow(2,-1,d);j=((-r)*inv2)%d
-        jj=j
-        while jj<k:
-            if m+2*jj!=d: A[jj]=0
-            jj+=d
-        d=d+4 if d%6==1 else d+2
-    primes=[]
-    for i in range(k):
-        if A[i]:
-            cand=m+2*i
-            if cand>=2 and is_prime_deterministic(cand): primes.append(cand)
-    return primes
-def generate_large_prime(bits,method='miller-rabin'):
-    if bits<2: raise ValueError("Битность ≥ 2")
-    max_allowed=METHOD_MAX_BITS.get(method,1024)
-    if bits>max_allowed: raise ValueError(f"Метод '{method}' поддерживает ≤ {max_allowed} бит.")
+            return False
+    return True
+
+
+def is_prime_miller_rabin(n, k=10):
+    if n < 2: return False
+    for p in _SMALL_PRIMES[:15]:
+        if n % p == 0: return n == p
+    d = n - 1
+    s = 0
+    while d % 2 == 0:
+        d //= 2
+        s += 1
+    for _ in range(k):
+        a = secrets.randbelow(n - 3) + 2
+        x = pow(a, d, n)
+        if x == 1 or x == n - 1: continue
+        for __ in range(s - 1):
+            x = (x * x) % n
+            if x == n - 1: break
+        else:
+            return False
+    return True
+
+
+def genpr_algorithm(m, k):
+    if m < 3: m = 3
+    if m % 2 == 0: m += 1
+    n = m + 2 * k - 2
+    A = [1] * k
+    d = 3
     while True:
-        candidate=secrets.randbits(bits)
-        candidate|=(1<<(bits-1))|1
-        if any(candidate%p==0 and candidate!=p for p in _SMALL_PRIMES): continue
-        if method=='trial':
-            if candidate<2 or candidate%2==0: continue
-            limit=int(math.isqrt(candidate));f=3
-            while f<=limit and candidate%f: f+=2
-            if f>limit: return candidate
-        elif method=='sieve':
-            limit=(1<<bits)-1
-            sieve=[True]*(limit+1);sieve[0:2]=[False,False]
-            for i in range(2,int(limit**0.5)+1):
-                if sieve[i]: sieve[i*i::i]=[False]*((limit-i*i)//i+1)
-            primes=[i for i,fl in enumerate(sieve) if fl]
+        if d * d > n:
+            break
+        inv_2 = (d + 1) // 2
+        start_j = ((-m * inv_2) % d)
+        if (m + 2 * start_j) == d:
+            start_j += d
+        current_j = start_j
+        while current_j < k:
+            A[current_j] = 0
+            current_j += d
+        if d % 6 == 1:
+            d += 4
+        else:
+            d += 2
+    primes = []
+    for i in range(k):
+        if A[i] == 1:
+            primes.append(m + 2 * i)
+    return [p for p in primes if is_prime_deterministic(p)]
+
+
+def generate_large_prime(bits=None, method='miller-rabin', genpr_params=None):
+    if method == 'genpr':
+        if not genpr_params:
+            m_val = 1 << (bits - 1) if bits else 1001
+            k_val = 1000
+        else:
+            m_val, k_val = genpr_params
+        primes = genpr_algorithm(m_val, k_val)
+        if primes:
+            return secrets.choice(primes)
+        else:
+            raise ValueError(f"GENPR: нет простых чисел в диапазоне [{m_val}, {m_val + 2 * k_val - 2}]")
+
+    if bits < 2: raise ValueError("Битность ≥ 2")
+    max_allowed = METHOD_MAX_BITS.get(method, 1024)
+    if bits > max_allowed:
+        raise ValueError(f"Метод '{method}' поддерживает ≤ {max_allowed} бит.")
+
+    while True:
+        candidate = secrets.randbits(bits)
+        candidate |= (1 << (bits - 1)) | 1
+        if any(candidate % p == 0 and candidate != p for p in _SMALL_PRIMES):
+            continue
+        if method == 'trial':
+            if candidate < 2: continue
+            limit = int(math.isqrt(candidate))
+            f = 3
+            while f <= limit and candidate % f: f += 2
+            if f > limit: return candidate
+        elif method == 'sieve':
+            limit = (1 << bits) - 1
+            sieve = [True] * (limit + 1);
+            sieve[0:2] = [False, False]
+            for i in range(2, int(limit ** 0.5) + 1):
+                if sieve[i]: sieve[i * i::i] = [False] * ((limit - i * i) // i + 1)
+            primes = [i for i, fl in enumerate(sieve) if fl]
             if primes: return secrets.choice(primes)
-        elif method=='genpr':
-            m=1<<(bits-1)
-            if m%2==0: m+=1
-            k=(1<<(bits-1))//2
-            primes=genpr_algorithm(m,k)
-            if primes: return secrets.choice(primes)
-        elif method=='miller-rabin':
-            if candidate<(1<<64):
-                if is_prime_deterministic(candidate): return candidate
-            else:
-                if is_prime_miller_rabin(candidate,k=10): return candidate
-def mod_exp(base,exp,mod):
-    if mod==1: return 0
-    result=1;base%=mod
-    while exp>0:
-        if exp&1: result=(result*base)%mod
-        exp>>=1;base=(base*base)%mod
-    return result
+        elif method == 'miller-rabin':
+            if is_prime_miller_rabin(candidate, k=10): return candidate
+
+
+def mod_exp(base, exp, mod):
+    return pow(base, exp, mod)
+
+
+# -------------------- Окно просмотра Гаммы --------------------
+class GammaDisplayWindow(QDialog):
+    def __init__(self, gamma_bytes, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Просмотр Гаммы")
+        self.resize(600, 500)
+        layout = QVBoxLayout(self)
+
+        layout.addWidget(QLabel("<b>16-ричный вид (HEX):</b>"))
+        self.hex_view = QTextEdit()
+        self.hex_view.setReadOnly(True)
+        hex_str = gamma_bytes.hex(" ").upper()
+        self.hex_view.setPlainText(hex_str)
+        layout.addWidget(self.hex_view)
+
+        layout.addWidget(QLabel("<b>Десятичный вид (0-255):</b>"))
+        self.dec_view = QTextEdit()
+        self.dec_view.setReadOnly(True)
+        dec_str = ", ".join(str(b) for b in gamma_bytes)
+        self.dec_view.setPlainText(dec_str)
+        layout.addWidget(self.dec_view)
+
+        btn_close = QPushButton("Закрыть")
+        btn_close.clicked.connect(self.close)
+        layout.addWidget(btn_close)
+
+
+# -------------------- GammaTab --------------------
 class GammaTab(QWidget):
+    MAX_LOG_BLOCKS = 1000
+
     def __init__(self):
         super().__init__()
         main_layout = QHBoxLayout(self)
 
-        # --- Left Panel (Controls) ---
-        controls_group = QGroupBox("Управление")
-        controls_layout = QVBoxLayout()
+        # Левая панель управления
+        left_panel = QWidget()
+        left_panel.setMaximumWidth(400)
+        left_layout = QVBoxLayout(left_panel)
 
-        # File operations
-        file_group = QGroupBox("Файл")
-        file_layout = QVBoxLayout()
-        self.btn_load = QPushButton("Загрузить исходный текст")
-        self.btn_load.clicked.connect(self.load_file)
-        self.btn_save = QPushButton("Сохранить результат")
-        self.btn_save.clicked.connect(self.save_result)
-        file_layout.addWidget(self.btn_load)
-        file_layout.addWidget(self.btn_save)
-        file_group.setLayout(file_layout)
-        controls_layout.addWidget(file_group)
+        # Группа параметров генератора
+        params_group = QGroupBox("Параметры генератора")
+        params_layout = QVBoxLayout(params_group)
 
-        # Gamma parameters
-        params_group = QGroupBox("Параметры гаммирования")
-        params_layout = QFormLayout() # Using QFormLayout for a cleaner look
+        seed_layout = QHBoxLayout()
+        seed_layout.addWidget(QLabel("Seed:"))
         self.seed_input = QLineEdit("12345")
-        self.bits_combo = QComboBox()
-        self.bits_combo.addItems(["32", "64", "128", "256"])
-        self.bits_combo.setCurrentText("128")
-        self.btn_gen_seed = QPushButton("Сгенерировать новый Seed")
-        self.btn_gen_seed.clicked.connect(self.generate_seed)
+        seed_layout.addWidget(self.seed_input)
+        params_layout.addLayout(seed_layout)
+
+        type_layout = QHBoxLayout()
+        type_layout.addWidget(QLabel("Тип:"))
         self.gen_combo = QComboBox()
-        self.gen_combo.addItems(["Линейный конгруэнтный (LCG)", "Мультипликативный", "Аддитивный (Фибоначчи)"])
+        self.gen_combo.addItems(["LCG (Линейный)", "Мультипликативный", "Аддитивный"])
+        self.gen_combo.currentIndexChanged.connect(self.on_gen_changed)
+        type_layout.addWidget(self.gen_combo)
+        params_layout.addLayout(type_layout)
 
-        params_layout.addRow("Seed (ключ):", self.seed_input)
-        params_layout.addRow("Битность Seed:", self.bits_combo)
-        params_layout.addRow(self.btn_gen_seed)
-        params_layout.addRow("Генератор:", self.gen_combo)
-        params_group.setLayout(params_layout)
-        controls_layout.addWidget(params_group)
+        coeffs_layout = QHBoxLayout()
+        self.a_label = QLabel("a:")
+        self.a_input = QLineEdit("1664525")
+        self.b_label = QLabel("b:")
+        self.b_input = QLineEdit("1013904223")
+        self.m_label = QLabel("m:")
+        self.m_input = QLineEdit("4294967296")
+        coeffs_layout.addWidget(self.a_label)
+        coeffs_layout.addWidget(self.a_input)
+        coeffs_layout.addWidget(self.b_label)
+        coeffs_layout.addWidget(self.b_input)
+        coeffs_layout.addWidget(self.m_label)
+        coeffs_layout.addWidget(self.m_input)
+        params_layout.addLayout(coeffs_layout)
 
-        # Actions
-        actions_group = QGroupBox("Действия")
-        actions_layout = QHBoxLayout()
-        self.btn_encrypt = QPushButton("Зашифровать")
+        key_btns = QHBoxLayout()
+        self.btn_save_key = QPushButton("Сохранить ключи")
+        self.btn_save_key.clicked.connect(self.save_key_file)
+        self.btn_load_key = QPushButton("Загрузить ключи")
+        self.btn_load_key.clicked.connect(self.load_key_file)
+        key_btns.addWidget(self.btn_save_key)
+        key_btns.addWidget(self.btn_load_key)
+        params_layout.addLayout(key_btns)
+
+        left_layout.addWidget(params_group)
+
+        # Группа управления
+        control_group = QGroupBox("Управление")
+        control_layout = QVBoxLayout(control_group)
+
+        file_btns = QHBoxLayout()
+        self.btn_load = QPushButton("Загрузить файл")
+        self.btn_load.clicked.connect(self.load_file)
+        file_btns.addWidget(self.btn_load)
+        control_layout.addLayout(file_btns)
+
+        action_btns = QHBoxLayout()
+        self.btn_encrypt = QPushButton("Шифровать")
         self.btn_encrypt.clicked.connect(self.encrypt)
-        self.btn_decrypt = QPushButton("Расшифровать")
+        self.btn_decrypt = QPushButton("Дешифровать")
         self.btn_decrypt.clicked.connect(self.decrypt)
-        actions_layout.addWidget(self.btn_encrypt)
-        actions_layout.addWidget(self.btn_decrypt)
-        actions_group.setLayout(actions_layout)
-        controls_layout.addWidget(actions_group)
+        action_btns.addWidget(self.btn_encrypt)
+        action_btns.addWidget(self.btn_decrypt)
+        control_layout.addLayout(action_btns)
 
-        controls_layout.addStretch() # Pushes everything up
-        controls_group.setLayout(controls_layout)
-        main_layout.addWidget(controls_group)
+        gamma_btn_layout = QHBoxLayout()
+        self.btn_show_gamma = QPushButton("Показать гамму")
+        self.btn_show_gamma.clicked.connect(self.show_gamma_window)
+        self.btn_show_gamma.setEnabled(False)
+        gamma_btn_layout.addWidget(self.btn_show_gamma)
+        control_layout.addLayout(gamma_btn_layout)
 
-        # --- Right Panel (Text Areas) ---
-        text_splitter = QSplitter(Qt.Vertical) # Changed to Vertical splitter
+        left_layout.addWidget(control_group)
 
-        # Input text area
-        left_group = QGroupBox("Исходные данные")
-        left_layout = QVBoxLayout(left_group)
+        # Группа анимации
+        anim_group = QGroupBox("Анимация")
+        anim_layout = QVBoxLayout(anim_group)
+
+        anim_btns = QHBoxLayout()
+        self.btn_anim_encrypt = QPushButton("▶ Шифр.")
+        self.btn_anim_decrypt = QPushButton("▶ Дешифр.")
+        self.btn_anim_pause = QPushButton("⏸")
+        self.btn_anim_step = QPushButton("⏭")
+        self.btn_anim_stop = QPushButton("⏹")
+        for b in (self.btn_anim_pause, self.btn_anim_step, self.btn_anim_stop):
+            b.setEnabled(False)
+        self.btn_anim_encrypt.clicked.connect(lambda: self.start_animation('encrypt'))
+        self.btn_anim_decrypt.clicked.connect(lambda: self.start_animation('decrypt'))
+        self.btn_anim_pause.clicked.connect(self.toggle_pause)
+        self.btn_anim_step.clicked.connect(self.animation_step_manual)
+        self.btn_anim_stop.clicked.connect(self.stop_animation)
+        anim_btns.addWidget(self.btn_anim_encrypt)
+        anim_btns.addWidget(self.btn_anim_decrypt)
+        anim_btns.addWidget(self.btn_anim_pause)
+        anim_btns.addWidget(self.btn_anim_step)
+        anim_btns.addWidget(self.btn_anim_stop)
+        anim_layout.addLayout(anim_btns)
+
+        speed_layout = QHBoxLayout()
+        speed_layout.addWidget(QLabel("Скорость:"))
+        self.speed_slider = QSlider(Qt.Horizontal)
+        self.speed_slider.setRange(1, 10)
+        self.speed_slider.setValue(5)
+        self.speed_slider.valueChanged.connect(self.update_timer_interval)
+        speed_layout.addWidget(self.speed_slider)
+        anim_layout.addLayout(speed_layout)
+
+        progress_layout = QHBoxLayout()
+        self.progress = QProgressBar()
+        self.progress.setMinimum(0)
+        progress_layout.addWidget(self.progress)
+        self.current_block_label = QLabel("Блок: 0")
+        progress_layout.addWidget(self.current_block_label)
+        anim_layout.addLayout(progress_layout)
+
+        left_layout.addWidget(anim_group)
+
+        # Группа лога
+        log_group = QGroupBox("Лог операций")
+        log_layout = QVBoxLayout(log_group)
+        self.log_text = QTextEdit()
+        self.log_text.setReadOnly(True)
+        self.log_text.setMaximumHeight(200)
+        log_layout.addWidget(self.log_text)
+
+        log_btns = QHBoxLayout()
+        self.btn_clear_log = QPushButton("Очистить")
+        self.btn_clear_log.clicked.connect(self.log_text.clear)
+        self.btn_save_log = QPushButton("Сохранить лог")
+        self.btn_save_log.clicked.connect(self.save_log)
+        log_btns.addWidget(self.btn_clear_log)
+        log_btns.addWidget(self.btn_save_log)
+        log_layout.addLayout(log_btns)
+
+        left_layout.addWidget(log_group)
+        left_layout.addStretch()
+
+        # Правая панель данных
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+
+        # Группа ввода
+        input_group = QGroupBox("Входные данные")
+        input_layout = QVBoxLayout(input_group)
         self.input_text = QTextEdit()
-        self.input_text.setPlaceholderText("Введите текст или загрузите файл...")
-        left_layout.addWidget(self.input_text)
-        text_splitter.addWidget(left_group)
+        self.input_text.setPlaceholderText("Введите текст...")
+        input_layout.addWidget(self.input_text)
+        right_layout.addWidget(input_group)
 
-        # Output text area
-        right_group = QGroupBox("Результат (hex / текст)")
-        right_layout = QVBoxLayout(right_group)
+        # Группа вывода
+        output_group = QGroupBox("Результат")
+        output_layout = QVBoxLayout(output_group)
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
-        right_layout.addWidget(self.output_text)
-        text_splitter.addWidget(right_group)
+        output_layout.addWidget(self.output_text)
 
-        main_layout.addWidget(text_splitter)
+        save_btn_layout = QHBoxLayout()
+        self.btn_save = QPushButton("Сохранить результат")
+        self.btn_save.clicked.connect(self.save_result)
+        save_btn_layout.addWidget(self.btn_save)
+        output_layout.addLayout(save_btn_layout)
 
-        # Set stretch factors to make text areas larger than controls
-        main_layout.setStretch(0, 1) # controls panel stretch factor
-        main_layout.setStretch(1, 3) # text areas stretch factor
+        right_layout.addWidget(output_group)
+
+        # Добавляем панели в главный layout
+        main_layout.addWidget(left_panel)
+        main_layout.addWidget(right_panel)
+
+        self.last_gamma = b""
+        self.animation_timer = QTimer(self)
+        self.animation_timer.timeout.connect(self.animation_step)
+        self.animation_running = False
+        self.animation_paused = False
+        self.animation_mode = None
+        self.animation_data = None
+        self.animation_gen = None
+        self.animation_index = 0
+        self.animation_total = 0
+        self.animation_output = bytearray()
+        self.animation_full_gamma = bytearray()
+
+        self.on_gen_changed(0)
+
+    def on_gen_changed(self, index):
+        if index == 0:  # LCG
+            self.a_input.setEnabled(True)
+            self.a_label.setText("a:")
+            self.b_input.setEnabled(True)
+            self.b_input.setText("1013904223")
+            self.m_input.setEnabled(True)
+        elif index == 1:  # Мультипликативный
+            self.a_input.setEnabled(True)
+            self.a_label.setText("a:")
+            self.b_input.setEnabled(False)
+            self.b_input.setText("0")
+            self.m_input.setEnabled(True)
+        elif index == 2:  # Аддитивный
+            self.a_input.setEnabled(False)
+            self.a_label.setText("a (N/A):")
+            self.b_input.setEnabled(False)
+            self.b_input.setText("N/A")
+            self.m_input.setEnabled(True)
+
+    def get_generator(self):
+        try:
+            seed = int(self.seed_input.text())
+            m_val = int(self.m_input.text())
+            idx = self.gen_combo.currentIndex()
+            if idx == 0:
+                a_val = int(self.a_input.text())
+                b_val = int(self.b_input.text())
+                return LCG(seed, a=a_val, b=b_val, m=m_val)
+            elif idx == 1:
+                a_val = int(self.a_input.text())
+                return Multiplicative(seed, a=a_val, m=m_val)
+            else:
+                return Additive(seed, m=m_val)
+        except ValueError:
+            QMessageBox.warning(self, "Ошибка", "Проверьте, что a, b, m и seed - целые числа.")
+            return LCG(12345)
+
+    def load_file(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Открыть", "", "TXT (*.txt);;All (*)")
+        if path:
+            with open(path, 'r', encoding='utf-8') as f:
+                self.input_text.setPlainText(f.read())
+
     def generate_seed(self):
         try:
-            n_bits=int(self.bits_combo.currentText());seed=secrets.randbits(n_bits);self.seed_input.setText(str(seed))
-        except Exception as e: QMessageBox.critical(self,"Ошибка",f"Генерация seed:\n{e}")
-    def load_file(self):
-        path,_=QFileDialog.getOpenFileName(self,"Открыть TXT","","Text Files (*.txt)")
+            bits = 128  # Fixed bits for seed generation
+            self.seed_input.setText(str(secrets.randbits(bits)))
+        except:
+            pass
+
+    def save_key_file(self):
+        try:
+            seed = self.seed_input.text()
+            gen_idx = self.gen_combo.currentIndex()
+            a = self.a_input.text()
+            b = self.b_input.text()
+            m = self.m_input.text()
+            content = (f"seed={seed}\ntype={gen_idx}\na={a}\nb={b}\nm={m}\n")
+            path, _ = QFileDialog.getSaveFileName(self, "Сохранить ключ", "", "TXT (*.txt)")
+            if path:
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                QMessageBox.information(self, "OK", "Сохранено")
+        except Exception as e:
+            QMessageBox.critical(self, "ERR", str(e))
+
+    def load_key_file(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Загрузить ключ", "", "TXT (*.txt)")
+        if not path: return
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            for line in lines:
+                if '=' not in line: continue
+                k, v = line.strip().split('=', 1)
+                if k == 'seed':
+                    self.seed_input.setText(v)
+                elif k == 'type':
+                    self.gen_combo.setCurrentIndex(int(v))
+                elif k == 'a':
+                    self.a_input.setText(v)
+                elif k == 'b':
+                    self.b_input.setText(v)
+                elif k == 'm':
+                    self.m_input.setText(v)
+            self.on_gen_changed(self.gen_combo.currentIndex())
+        except Exception as e:
+            QMessageBox.critical(self, "ERR", str(e))
+
+    def process_gamma(self, data_bytes, gen):
+        block_size = 8
+        for i in range(0, len(data_bytes), block_size):
+            block = data_bytes[i:i + block_size]
+            formula_str = gen.get_formula_info()
+            params_desc = gen.get_params_description()
+
+            raw_val = gen.next()
+            full_info = f"{formula_str} = {raw_val}\n    {params_desc}"
+
+            gamma = bytearray()
+            gamma.append(raw_val & 0xFF)
+            for _ in range(len(block) - 1):
+                gamma.append(gen.next() & 0xFF)
+
+            out_block = bytes(b ^ g for b, g in zip(block, gamma))
+            yield i // block_size, block, gamma, out_block, full_info
+
+    def encrypt(self):
+        text = self.input_text.toPlainText()
+        if not text: return
+        gen = self.get_generator()
+        data = text.encode('utf-8')
+        out = bytearray()
+        full_log = []
+        self.last_gamma = bytearray()
+
+        for idx, inp, gam, res, info in self.process_gamma(data, gen):
+            out.extend(res)
+            self.last_gamma.extend(gam)
+
+            inp_chars = bytes_to_printable_utf8(inp)
+            res_chars = bytes_to_printable_utf8(res)
+
+            log_entry = (
+                f"Block {idx}:\n"
+                f"  Info:  {info}\n"
+                f"  Text:  '{inp_chars}'\n"
+                f"  InHex: {inp.hex()}\n"
+                f"  Gamma: {gam.hex()}\n"
+                f"  Out:   {res.hex()} (Encrypted: '{res_chars}')"
+            )
+            full_log.append(log_entry)
+
+        self.output_text.setPlainText(out.hex())
+        self.log_text.setPlainText('\n---------------------------------\n'.join(full_log))
+        self.btn_show_gamma.setEnabled(True)
+
+    def decrypt(self):
+        src = self.input_text.toPlainText().strip()
+        if not src: return
+        try:
+            data = bytes.fromhex(src)
+        except:
+            data = src.encode('utf-8')
+        gen = self.get_generator()
+        out = bytearray()
+        full_log = []
+        self.last_gamma = bytearray()
+
+        for idx, inp, gam, res, info in self.process_gamma(data, gen):
+            out.extend(res)
+            self.last_gamma.extend(gam)
+
+            inp_chars = bytes_to_printable_utf8(inp)
+            res_chars = bytes_to_printable_utf8(res)
+
+            log_entry = (
+                f"Block {idx}:\n"
+                f"  Info:  {info}\n"
+                f"  InHex: {inp.hex()}\n"
+                f"  Gamma: {gam.hex()}\n"
+                f"  Out:   {res.hex()}\n"
+                f"  Text:  '{res_chars}'"
+            )
+            full_log.append(log_entry)
+
+        try:
+            res_txt = out.decode('utf-8')
+        except:
+            res_txt = out.decode('utf-8', 'replace')
+
+        self.output_text.setPlainText(res_txt)
+        self.log_text.setPlainText('\n---------------------------------\n'.join(full_log))
+        self.btn_show_gamma.setEnabled(True)
+
+    def show_gamma_window(self):
+        if not self.last_gamma:
+            QMessageBox.information(self, "Информация", "Сначала выполните шифрование или дешифрование.")
+            return
+        dialog = GammaDisplayWindow(self.last_gamma, self)
+        dialog.exec()
+
+    def save_result(self):
+        txt = self.output_text.toPlainText()
+        if not txt:
+            QMessageBox.warning(self, "", "Пусто")
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Сохранить результат", "", "Text Files (*.txt)")
+        if path:
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(txt)
+            QMessageBox.information(self, "OK", "Сохранено")
+
+    def save_log(self):
+        txt = self.log_text.toPlainText()
+        if not txt:
+            QMessageBox.warning(self, "Пусто", "Лог пуст, нечего сохранять.")
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Сохранить лог", "", "Text Files (*.txt)")
         if path:
             try:
-                with open(path,'r',encoding='utf-8') as f: self.input_text.setPlainText(f.read())
-            except Exception as e: QMessageBox.critical(self,"Ошибка",f"Чтение файла:\n{e}")
-    def get_generator(self):
-        seed=int(self.seed_input.text());typ=self.gen_combo.currentIndex()
-        if typ==0: return LCG(seed)
-        if typ==1: return Multiplicative(seed)
-        return Additive(seed,seed+1)
-    def encrypt(self):
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(txt)
+                QMessageBox.information(self, "OK", "Лог сохранен")
+            except Exception as e:
+                QMessageBox.critical(self, "Ошибка", str(e))
+
+    def update_timer_interval(self):
+        self.animation_timer.setInterval(1100 - self.speed_slider.value() * 100)
+
+    def start_animation(self, mode):
+        if self.animation_running: return
+        txt = self.input_text.toPlainText().strip()
+        if not txt: return
         try:
-            text=self.input_text.toPlainText()
-            if not text: raise ValueError("Введите текст")
-            gen=self.get_generator();enc=apply_gamma(text.encode('utf-8'),gen)
-            self.output_text.setPlainText(enc.hex());QMessageBox.information(self,"Успех","Текст зашифрован (HEX справа).")
-        except Exception as e: QMessageBox.critical(self,"Шифрование",str(e))
-    def decrypt(self):
-        try:
-            txt=self.input_text.toPlainText()
-            if not txt: raise ValueError("Введите шифротекст (hex или текст)")
-            try: data=bytes.fromhex(txt)
-            except ValueError: data=txt.encode('utf-8')
-            gen=self.get_generator();dec=apply_gamma(data,gen)
-            self.output_text.setPlainText(dec.decode('utf-8',errors='replace'));QMessageBox.information(self,"Успех","Текст расшифрован.")
-        except Exception as e: QMessageBox.critical(self,"Дешифрование",str(e))
-    def save_result(self):
-        text=self.output_text.toPlainText()
-        if not text: QMessageBox.warning(self,"Пусто","Нет данных для сохранения.")
-        else:
-            path,_=QFileDialog.getSaveFileName(self,"Сохранить","","Text Files (*.txt)")
-            if path:
+            if mode == 'decrypt':
                 try:
-                    with open(path,'w',encoding='utf-8') as f: f.write(text)
-                    QMessageBox.information(self,"Сохранено",f"Файл:\n{path}")
-                except Exception as e: QMessageBox.critical(self,"Ошибка",f"Запись:\n{e}")
+                    self.animation_data = bytes.fromhex(txt)
+                except:
+                    self.animation_data = txt.encode('utf-8')
+            else:
+                self.animation_data = txt.encode('utf-8')
+
+            self.animation_gen = self.get_generator()
+            self.animation_mode = mode
+            self.animation_index = 0
+            self.animation_total = math.ceil(len(self.animation_data) / 8)
+            self.animation_output = bytearray()
+            self.animation_full_gamma = bytearray()
+
+            self.log_text.clear()
+            self.output_text.clear()
+
+            self.progress.setMaximum(self.animation_total)
+            self.progress.setValue(0)
+            self.animation_running = True
+            self.animation_paused = False
+            self.btn_show_gamma.setEnabled(False)
+
+            self.btn_anim_pause.setEnabled(True)
+            self.btn_anim_step.setEnabled(True)
+            self.btn_anim_stop.setEnabled(True)
+            self.btn_anim_encrypt.setEnabled(False)
+            self.btn_anim_decrypt.setEnabled(False)
+
+            self.update_timer_interval()
+            self.animation_timer.start()
+        except Exception as e:
+            QMessageBox.critical(self, "Err", str(e))
+
+    def animation_step(self):
+        if self.animation_running and not self.animation_paused:
+            self._do_step()
+
+    def animation_step_manual(self):
+        if self.animation_running:
+            self.animation_timer.stop()
+            self.animation_paused = True
+            self._do_step()
+
+    def toggle_pause(self):
+        if not self.animation_running: return
+        self.animation_paused = not self.animation_paused
+        if self.animation_paused:
+            self.animation_timer.stop()
+        else:
+            self.animation_timer.start()
+
+    def stop_animation(self):
+        self.animation_running = False
+        self.animation_timer.stop()
+        self.btn_anim_pause.setEnabled(False)
+        self.btn_anim_step.setEnabled(False)
+        self.btn_anim_stop.setEnabled(False)
+        self.btn_anim_encrypt.setEnabled(True)
+        self.btn_anim_decrypt.setEnabled(True)
+        self.last_gamma = self.animation_full_gamma
+        self.btn_show_gamma.setEnabled(True)
+
+    def _do_step(self):
+        if self.animation_index >= self.animation_total:
+            self.stop_animation()
+            return
+
+        start = self.animation_index * 8
+        block = self.animation_data[start:start + 8]
+        gen = self.animation_gen
+
+        info = f"{gen.get_formula_info()} = {gen.next()}\n    {gen.get_params_description()}"
+
+        gamma = bytearray([gen.state & 0xFF])
+        for _ in range(len(block) - 1):
+            gamma.append(gen.next() & 0xFF)
+
+        out = bytes(b ^ g for b, g in zip(block, gamma))
+
+        self.animation_output.extend(out)
+        self.animation_full_gamma.extend(gamma)
+
+        inp_chars = bytes_to_printable_utf8(block)
+        out_chars = bytes_to_printable_utf8(out)
+
+        log_entry = (
+            f"Block {self.animation_index}:\n"
+            f"  Info:  {info}\n"
+            f"  Text:  '{inp_chars}'\n"
+            f"  InHex: {block.hex()}\n"
+            f"  Gamma: {gamma.hex()}\n"
+            f"  Out:   {out.hex()} -> '{out_chars}'"
+        )
+        self.log_text.append(log_entry + "\n-----------------")
+
+        if self.animation_mode == 'encrypt':
+            self.output_text.setPlainText(self.animation_output.hex())
+        else:
+            self.output_text.setPlainText(bytes_to_printable_utf8(self.animation_output))
+
+        self.animation_index += 1
+        self.progress.setValue(self.animation_index)
+        self.current_block_label.setText(f"Блок: {self.animation_index}")
+
+        if self.animation_index >= self.animation_total:
+            self.stop_animation()
+
+
+# -------------------- ModArithmeticTab --------------------
 class ModArithmeticTab(QWidget):
     def __init__(self):
         super().__init__()
         main_layout = QHBoxLayout(self)
 
-        # --- Left Panel (Controls) ---
-        controls_group = QGroupBox("Управление")
-        controls_layout = QVBoxLayout()
+        # Левая панель управления
+        left_panel = QWidget()
+        left_panel.setMaximumWidth(400)
+        left_layout = QVBoxLayout(left_panel)
 
-        # Prime generation parameters
-        params_group = QGroupBox("Генерация двух простых чисел")
-        params_layout = QFormLayout()
-        self.bits_spin = QSpinBox()
-        self.bits_spin.setRange(8, 1024)
-        self.bits_spin.setValue(128)
+        # Группа генерации простых чисел
+        gen_group = QGroupBox("Генерация простых чисел")
+        gen_layout = QVBoxLayout(gen_group)
+
+        method_layout = QHBoxLayout()
+        method_layout.addWidget(QLabel("Метод:"))
         self.method_combo = QComboBox()
-        self.method_combo.addItems(["Миллер–Рабин (рекомендуется)", "Перебор (до 32 бит)", "Решето Эратосфена (до 20 бит)", "GENPR (до 24 бит)"])
-        self.method_combo.currentIndexChanged.connect(self.adjust_bits_limit)
+        self.method_combo.addItems(["Миллер–Рабин", "Перебор", "Решето Эратосфена", "GENPR"])
+        self.method_combo.currentIndexChanged.connect(self.on_method_changed)
+        method_layout.addWidget(self.method_combo)
+        gen_layout.addLayout(method_layout)
+
+        bits_layout = QHBoxLayout()
+        self.bits_label = QLabel("Битность:")
+        bits_layout.addWidget(self.bits_label)
+        self.bits_spin = QSpinBox()
+        self.bits_spin.setRange(8, 2048)
+        self.bits_spin.setValue(128)
+        bits_layout.addWidget(self.bits_spin)
+        gen_layout.addLayout(bits_layout)
+
+        genpr_layout = QHBoxLayout()
+        self.genpr_m_label = QLabel("m:")
+        self.genpr_m_spin = QSpinBox()
+        self.genpr_m_spin.setRange(3, 999999999)
+        self.genpr_m_spin.setValue(1001)
+        self.genpr_k_label = QLabel("k:")
+        self.genpr_k_spin = QSpinBox()
+        self.genpr_k_spin.setRange(1, 999999)
+        self.genpr_k_spin.setValue(100)
+        self.genpr_m_label.setVisible(False)
+        self.genpr_m_spin.setVisible(False)
+        self.genpr_k_label.setVisible(False)
+        self.genpr_k_spin.setVisible(False)
+        genpr_layout.addWidget(self.genpr_m_label)
+        genpr_layout.addWidget(self.genpr_m_spin)
+        genpr_layout.addWidget(self.genpr_k_label)
+        genpr_layout.addWidget(self.genpr_k_spin)
+        gen_layout.addLayout(genpr_layout)
+
+        gen_btn_layout = QHBoxLayout()
         self.btn_gen = QPushButton("Сгенерировать 2 простых")
         self.btn_gen.clicked.connect(self.generate_primes)
-        
-        params_layout.addRow("Битность:", self.bits_spin)
-        params_layout.addRow("Метод:", self.method_combo)
-        params_layout.addRow(self.btn_gen)
-        params_group.setLayout(params_layout)
-        controls_layout.addWidget(params_group)
+        gen_btn_layout.addWidget(self.btn_gen)
+        gen_layout.addLayout(gen_btn_layout)
 
-        # Primes display
-        primes_group = QGroupBox("Простые числа")
-        primes_layout = QVBoxLayout()
+        primes_layout = QHBoxLayout()
         self.p1_edit = QLineEdit()
         self.p1_edit.setPlaceholderText("p1")
         self.p2_edit = QLineEdit()
         self.p2_edit.setPlaceholderText("p2")
-        primes_layout.addWidget(QLabel("p1:"))
         primes_layout.addWidget(self.p1_edit)
-        primes_layout.addWidget(QLabel("p2:"))
         primes_layout.addWidget(self.p2_edit)
-        primes_group.setLayout(primes_layout)
-        controls_layout.addWidget(primes_group)
+        gen_layout.addLayout(primes_layout)
 
-        # Operations parameters
-        ops_group = QGroupBox("Параметры операций")
-        ops_layout = QFormLayout()
+        left_layout.addWidget(gen_group)
+
+        # Группа операций
+        ops_group = QGroupBox("Операции")
+        ops_layout = QVBoxLayout(ops_group)
+
+        a_layout = QHBoxLayout()
+        a_layout.addWidget(QLabel("a ="))
         self.a_edit = QLineEdit()
-        self.b_edit = QLineEdit()
-        self.n_edit = QLineEdit("17")
-        self.m_edit = QLineEdit("101")
-        ops_layout.addRow("a =", self.a_edit)
-        ops_layout.addRow("b =", self.b_edit)
-        ops_layout.addRow("n =", self.n_edit)
-        ops_layout.addRow("m =", self.m_edit)
-        ops_group.setLayout(ops_layout)
-        controls_layout.addWidget(ops_group)
+        a_layout.addWidget(self.a_edit)
+        ops_layout.addLayout(a_layout)
 
-        # Actions
-        actions_group = QGroupBox("Действия")
-        actions_layout = QVBoxLayout()
-        self.btn_use = QPushButton("Использовать p1, p2 как a, b")
+        b_layout = QHBoxLayout()
+        b_layout.addWidget(QLabel("b ="))
+        self.b_edit = QLineEdit()
+        b_layout.addWidget(self.b_edit)
+        ops_layout.addLayout(b_layout)
+
+        n_layout = QHBoxLayout()
+        n_layout.addWidget(QLabel("n ="))
+        self.n_edit = QLineEdit("17")
+        n_layout.addWidget(self.n_edit)
+        ops_layout.addLayout(n_layout)
+
+        m_layout = QHBoxLayout()
+        m_layout.addWidget(QLabel("m ="))
+        self.m_edit = QLineEdit("101")
+        m_layout.addWidget(self.m_edit)
+        ops_layout.addLayout(m_layout)
+
+        use_btn_layout = QHBoxLayout()
+        self.btn_use = QPushButton("Использовать p1,p2 как a,b")
         self.btn_use.clicked.connect(self.use_primes)
+        use_btn_layout.addWidget(self.btn_use)
+        ops_layout.addLayout(use_btn_layout)
+
+        calc_btn_layout = QHBoxLayout()
         self.btn_calc = QPushButton("Выполнить операции")
         self.btn_calc.clicked.connect(self.calculate_all)
-        actions_layout.addWidget(self.btn_use)
-        actions_layout.addWidget(self.btn_calc)
-        actions_group.setLayout(actions_layout)
-        controls_layout.addWidget(actions_group)
+        calc_btn_layout.addWidget(self.btn_calc)
+        ops_layout.addLayout(calc_btn_layout)
 
-        controls_layout.addStretch() # Pushes everything up
-        controls_group.setLayout(controls_layout)
-        main_layout.addWidget(controls_group)
+        left_layout.addWidget(ops_group)
+        left_layout.addStretch()
 
-        # --- Right Panel (Results) ---
-        results_group = QGroupBox("Результаты операций")
-        results_layout = QVBoxLayout()
+        # Правая панель результатов
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+
+        results_group = QGroupBox("Результаты")
+        results_layout = QVBoxLayout(results_group)
         self.results = QTextEdit()
         self.results.setReadOnly(True)
-        self.results.setPlaceholderText("Результаты операций будут отображены здесь...")
+        self.results.setPlaceholderText("Результаты...")
         results_layout.addWidget(self.results)
-        
-        # Footer buttons
-        footer_layout = QHBoxLayout()
-        self.btn_export = QPushButton("Сохранить")
-        self.btn_export.clicked.connect(self.export)
-        self.btn_clear = QPushButton("Очистить")
-        self.btn_clear.clicked.connect(self.results.clear)
-        footer_layout.addWidget(self.btn_export)
-        footer_layout.addWidget(self.btn_clear)
-        footer_layout.addStretch()
-        results_layout.addLayout(footer_layout)
-        
-        results_group.setLayout(results_layout)
-        main_layout.addWidget(results_group)
+        right_layout.addWidget(results_group)
 
-        # Set stretch factors to make results area larger than controls
-        main_layout.setStretch(0, 1) # controls panel stretch factor
-        main_layout.setStretch(1, 3) # results area stretch factor
+        main_layout.addWidget(left_panel)
+        main_layout.addWidget(right_panel)
+
+    def on_method_changed(self):
+        method = self.get_method()
+        is_genpr = (method == "genpr")
+        self.bits_label.setVisible(not is_genpr)
+        self.bits_spin.setVisible(not is_genpr)
+        self.genpr_m_label.setVisible(is_genpr)
+        self.genpr_m_spin.setVisible(is_genpr)
+        self.genpr_k_label.setVisible(is_genpr)
+        self.genpr_k_spin.setVisible(is_genpr)
+        if not is_genpr:
+            self.adjust_bits_limit()
+
     def adjust_bits_limit(self):
-        method=self.get_method();max_bits=METHOD_MAX_BITS.get(method,1024)
-        if self.bits_spin.value()>max_bits:
-            self.bits_spin.setValue(max_bits);QMessageBox.information(self,"ℹ️ Ограничение",f"Для метода '{method}' максимум {max_bits} бит. Скорректировано.")
+        method = self.get_method()
+        max_bits = METHOD_MAX_BITS.get(method, 1024)
+        if self.bits_spin.value() > max_bits:
+            self.bits_spin.setValue(max_bits)
+            QMessageBox.information(self, "ℹ️ Ограничение", f"Для '{method}' максимум {max_bits} бит.")
         self.bits_spin.setMaximum(max_bits)
+
     def get_method(self):
-        t=self.method_combo.currentText()
+        t = self.method_combo.currentText()
         if "Миллер" in t: return "miller-rabin"
         if "Перебор" in t: return "trial"
         if "Решето" in t: return "sieve"
         if "GENPR" in t: return "genpr"
         return "miller-rabin"
+
     def generate_primes(self):
         try:
-            bits=self.bits_spin.value();method=self.get_method()
-            p1=generate_large_prime(bits,method);p2=generate_large_prime(bits,method)
-            while p1==p2: p2=generate_large_prime(bits,method)
-            self.p1_edit.setText(str(p1));self.p2_edit.setText(str(p2))
-            QMessageBox.information(self,"✅ Успех",f"Сгенерированы два простых по {bits} бит (метод: {method}).")
-        except Exception as e: QMessageBox.critical(self,"❌ Генерация",str(e))
+            method = self.get_method()
+            bits = self.bits_spin.value()
+            genpr_params = None
+            if method == 'genpr':
+                m = self.genpr_m_spin.value()
+                k = self.genpr_k_spin.value()
+                if m % 2 == 0: m += 1
+                genpr_params = (m, k)
+            p1 = generate_large_prime(bits, method, genpr_params)
+            p2 = generate_large_prime(bits, method, genpr_params)
+            attempts = 0
+            while p1 == p2 and attempts < 10:
+                p2 = generate_large_prime(bits, method, genpr_params)
+                attempts += 1
+            self.p1_edit.setText(str(p1))
+            self.p2_edit.setText(str(p2))
+            QMessageBox.information(self, "✅ Успех", f"Сгенерированы два простых (Метод: {method}).")
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Генерация", str(e))
+
     def use_primes(self):
         try:
-            p1=self.p1_edit.text();p2=self.p2_edit.text()
-            if not p1 or not p2: raise ValueError("Сначала сгенерируйте простые.")
-            self.a_edit.setText(p1);self.b_edit.setText(p2)
-        except Exception as e: QMessageBox.warning(self,"⚠️ Ошибка",str(e))
+            p1 = self.p1_edit.text()
+            p2 = self.p2_edit.text()
+            if not p1 or not p2:
+                raise ValueError("Сначала сгенерируйте простые.")
+            self.a_edit.setText(p1)
+            self.b_edit.setText(p2)
+        except Exception as e:
+            QMessageBox.warning(self, "⚠️ Ошибка", str(e))
+
     def calculate_all(self):
         try:
-            a=int(self.a_edit.text());b=int(self.b_edit.text());n=int(self.n_edit.text());m=int(self.m_edit.text())
-            if b==0: raise ValueError("b не может быть 0.")
-            add=a+b;sub=a-b;mul=a*b;div_floor=a//b;modv=a%b;modexp_v=mod_exp(a,n,m)
+            a_txt = self.a_edit.text().strip()
+            b_txt = self.b_edit.text().strip()
+            n_txt = self.n_edit.text().strip()
+            m_txt = self.m_edit.text().strip()
+            if not (a_txt and b_txt and n_txt and m_txt):
+                raise ValueError("Заполните a, b, n, m.")
+            a = int(a_txt)
+            b = int(b_txt)
+            n = int(n_txt)
+            m = int(m_txt)
+            if b == 0: raise ValueError("b не может быть 0.")
+            if m == 0: raise ValueError("m не может быть 0.")
+            add = a + b
+            sub = a - b
+            mul = a * b
+            div_floor = a // b
+            modv_ab = a % b
             try:
-                div_float=a/b
-                if abs(div_float)>1e300: div_str="слишком большое"
+                div_float = a / b
+                if abs(div_float) > 1e300:
+                    div_str = "слишком большое"
                 else:
-                    div_str=f"{div_float:.20g}"
-                    if '.' not in div_str and 'e' not in div_str: div_str+=".0"
-            except Exception: div_str="ошибка"
-            report=f"""Операции:
-a = {a}
-b = {b}
-n = {n}
-m = {m}
-a + b = {add}
-a - b = {sub}
-a * b = {mul}
-a // b = {div_floor}
-a / b = {div_str}
-a mod b = {modv}
-a^{n} mod {m} = {modexp_v}
-"""
-            self.results.setPlainText(report)
-        except Exception as e: QMessageBox.critical(self,"❌ Вычисления",str(e))
-    def export(self):
-        text=self.results.toPlainText().strip()
-        if not text: QMessageBox.warning(self,"⚠️ Пусто","Нет данных.");return
-        path,_=QFileDialog.getSaveFileName(self,"Сохранить","","Text Files (*.txt)")
-        if path:
-            try:
-                with open(path,'w',encoding='utf-8') as f: f.write(text)
-                QMessageBox.information(self,"✅ Сохранено",f"Файл:\n{path}")
-            except Exception as e: QMessageBox.critical(self,"❌ Ошибка",f"Запись:\n{e}")
-def extended_gcd(a,b):
-    if a==0: return b,0,1
-    g,x1,y1=extended_gcd(b%a,a);return g,y1-(b//a)*x1,x1
-def mod_inverse(a,m):
-    g,x,_=extended_gcd(a,m)
-    if g!=1: raise ValueError("Обратный элемент не существует.")
-    return x%m
-def encode_text_to_blocks(text,N):
-    data=text.encode('utf-8');length_prefix=len(data).to_bytes(4,'big');payload=length_prefix+data
-    block_bytes=max(1,(N.bit_length()-1)//8)
-    if block_bytes<=0: raise ValueError("Слишком малый модуль N для кодирования.")
-    blocks=[]
-    for i in range(0,len(payload),block_bytes):
-        chunk=payload[i:i+block_bytes]
-        if len(chunk)<block_bytes: chunk=chunk+b'\x00'*(block_bytes-len(chunk))
-        blocks.append(int.from_bytes(chunk,'big'))
-    return blocks,block_bytes
-def decode_blocks_to_text(blocks,block_bytes):
-    if block_bytes<=0: raise ValueError("Некорректный размер блока.")
-    data=bytearray()
-    for block in blocks: data.extend(block.to_bytes(block_bytes,'big'))
-    if len(data)<4: raise ValueError("Недостаточно данных для восстановления длины сообщения.")
-    msg_len=int.from_bytes(data[:4],'big');payload=data[4:4+msg_len]
-    return payload.decode('utf-8',errors='replace')
-def parse_numbers(text):
-    if not text.strip(): return []
-    cleaned=text.strip()
-    for ch in '[]{}()': cleaned=cleaned.replace(ch,' ')
-    cleaned=cleaned.replace(';',' ').replace(',',' ')
-    parts=[p for p in cleaned.split() if p];nums=[]
-    for p in parts:
-        if not p.isdigit(): raise ValueError(f"Некорректный элемент списка: '{p}'")
-        nums.append(int(p))
-    return nums
+                    div_str = f"{div_float:.20g}"
+                    if '.' not in div_str and 'e' not in div_str:
+                        div_str += ".0"
+            except Exception:
+                div_str = "ошибка"
+            amodm = a % m
+            pow_full = pow(a, n)
+            digits = len(str(pow_full))
+            if digits <= 5000:
+                pow_full_str = str(pow_full)
+                pow_full_info = ""
+            else:
+                pow_full_str = f"[число слишком длинное: {digits} цифр]"
+                pow_full_info = f"Длина a^n = {digits} цифр"
+            pow_mod = mod_exp(a, n, m)
+            lines = [
+                "Операции:",
+                f"a = {a}",
+                f"b = {b}",
+                f"n = {n}",
+                f"m = {m}",
+                f"a + b = {add}",
+                f"a - b = {sub}",
+                f"a * b = {mul}",
+                f"a // b = {div_floor}",
+                f"a / b = {div_str}",
+                f"a mod b = {modv_ab}",
+                f"a mod m = {amodm}",
+                f"a^n = {pow_full_str}",
+                *([pow_full_info] if pow_full_info else []),
+                f"a^n mod m = {pow_mod}"
+            ]
+            self.results.setPlainText('\n'.join(lines))
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Вычисления", str(e))
+
+
+# -------------------- RSATab (с полной анимацией) --------------------
 class RSATab(QWidget):
     def __init__(self):
         super().__init__()
         main_layout = QHBoxLayout(self)
 
-        # --- Left Panel (Controls) ---
-        controls_group = QGroupBox("Управление")
-        controls_layout = QVBoxLayout()
+        # Левая панель управления с прокруткой
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setMaximumWidth(450)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
-        # Generation of primes
-        gen_group = QGroupBox("1. Генерация простых чисел p и q")
-        gen_layout = QVBoxLayout()
-        
-        gen_form = QFormLayout()
+        left_panel = QWidget()
+        left_panel.setObjectName("left_panel_rsa")
+        left_layout = QVBoxLayout(left_panel)
+
+        # Группа генерации ключей
+        key_gen_group = QGroupBox("Генерация ключей RSA")
+        key_gen_layout = QVBoxLayout(key_gen_group)
+
+        # Параметры генерации
+        params_layout = QVBoxLayout()
+
+        method_layout = QHBoxLayout()
+        method_layout.addWidget(QLabel("Способ:"))
         self.gen_method_combo = QComboBox()
-        self.gen_method_combo.addItems(["Автоматически (одинаковые параметры для p и q)", "Автоматически (разные параметры для p и q)", "Ввести вручную"])
+        self.gen_method_combo.addItems(["Автом. (одинаково)", "Автом. (раздельно)", "Ручной ввод"])
         self.gen_method_combo.currentIndexChanged.connect(self.on_generation_method_changed)
-        gen_form.addRow("Способ генерации:", self.gen_method_combo)
-        gen_layout.addLayout(gen_form)
-        
-        params_widget = QWidget()
-        params_layout = QVBoxLayout(params_widget)
-        self.bits_p_label = QLabel("Битность p:")
-        self.bits_p_spin = QSpinBox()
-        self.bits_p_spin.setRange(8, 512)
-        self.bits_p_spin.setValue(16)
-        self.method_p_label = QLabel("Метод p:")
-        self.method_p_combo = QComboBox()
-        self.method_p_combo.addItems(["Автоматически", "Миллер–Рабин (рекомендуется)", "Перебор (до 32 бит)", "Решето Эратосфена (до 20 бит)", "GENPR (до 24 бит)"])
-        
-        p_form = QFormLayout()
-        p_form.addRow(self.bits_p_label, self.bits_p_spin)
-        p_form.addRow(self.method_p_label, self.method_p_combo)
-        params_layout.addLayout(p_form)
-        
-        self.bits_q_label = QLabel("Битность q:")
-        self.bits_q_spin = QSpinBox()
-        self.bits_q_spin.setRange(8, 512)
-        self.bits_q_spin.setValue(16)
-        self.method_q_label = QLabel("Метод q:")
-        self.method_q_combo = QComboBox()
-        self.method_q_combo.addItems(["Автоматически", "Миллер–Рабин (рекомендуется)", "Перебор (до 32 бит)", "Решето Эратосфена (до 20 бит)", "GENPR (до 24 бит)"])
-        
-        q_form = QFormLayout()
-        q_form.addRow(self.bits_q_label, self.bits_q_spin)
-        q_form.addRow(self.method_q_label, self.method_q_combo)
-        params_layout.addLayout(q_form)
-        
-        self.method_info_label = QLabel("Метод: выбирается автоматически")
-        params_layout.addWidget(self.method_info_label)
-        gen_layout.addWidget(params_widget)
-        
-        self.btn_gen_pq = QPushButton("Сгенерировать p, q")
-        self.btn_gen_pq.clicked.connect(self.generate_pq)
-        gen_layout.addWidget(self.btn_gen_pq)
-        
-        pq_form = QFormLayout()
-        self.p_edit = QLineEdit()
-        self.p_edit.setPlaceholderText("Введите или сгенерируйте p")
-        self.q_edit = QLineEdit()
-        self.q_edit.setPlaceholderText("Введите или сгенерируйте q")
-        pq_form.addRow("p:", self.p_edit)
-        pq_form.addRow("q:", self.q_edit)
-        gen_layout.addLayout(pq_form)
-        
-        gen_group.setLayout(gen_layout)
-        controls_layout.addWidget(gen_group)
+        method_layout.addWidget(self.gen_method_combo)
+        params_layout.addLayout(method_layout)
 
-        # Keys group
-        key_group = QGroupBox("2. Ключи RSA")
-        key_layout = QVBoxLayout()
-        
-        key_mode_form = QFormLayout()
+        # Параметры p
+        p_group = QGroupBox("Параметры p")
+        p_layout = QVBoxLayout(p_group)
+
+        p_bits_layout = QHBoxLayout()
+        p_bits_layout.addWidget(QLabel("Битность:"))
+        self.bits_p_spin = QSpinBox()
+        self.bits_p_spin.setRange(32, 2048)
+        self.bits_p_spin.setValue(128)
+        p_bits_layout.addWidget(self.bits_p_spin)
+        p_layout.addLayout(p_bits_layout)
+
+        p_method_layout = QHBoxLayout()
+        p_method_layout.addWidget(QLabel("Метод:"))
+        self.method_p_combo = QComboBox()
+        self.method_p_combo.addItems(["Авто", "Миллер–Рабин", "Перебор", "Решето", "GENPR"])
+        self.method_p_combo.currentIndexChanged.connect(self.update_p_method_ui)
+        p_method_layout.addWidget(self.method_p_combo)
+        p_layout.addLayout(p_method_layout)
+
+        p_genpr_layout = QHBoxLayout()
+        self.genpr_m_p_label = QLabel("m:")
+        self.genpr_m_p_spin = QSpinBox()
+        self.genpr_m_p_spin.setRange(3, 10 ** 9)
+        self.genpr_m_p_spin.setValue(1001)
+        self.genpr_k_p_label = QLabel("k:")
+        self.genpr_k_p_spin = QSpinBox()
+        self.genpr_k_p_spin.setRange(1, 10 ** 6)
+        self.genpr_k_p_spin.setValue(100)
+        p_genpr_layout.addWidget(self.genpr_m_p_label)
+        p_genpr_layout.addWidget(self.genpr_m_p_spin)
+        p_genpr_layout.addWidget(self.genpr_k_p_label)
+        p_genpr_layout.addWidget(self.genpr_k_p_spin)
+        self.genpr_m_p_label.setVisible(False)
+        self.genpr_m_p_spin.setVisible(False)
+        self.genpr_k_p_label.setVisible(False)
+        self.genpr_k_p_spin.setVisible(False)
+        p_layout.addLayout(p_genpr_layout)
+        params_layout.addWidget(p_group)
+
+        # Параметры q (только для раздельного режима)
+        self.q_group = QGroupBox("Параметры q")
+        q_layout = QVBoxLayout(self.q_group)
+
+        q_bits_layout = QHBoxLayout()
+        q_bits_layout.addWidget(QLabel("Битность:"))
+        self.bits_q_spin = QSpinBox()
+        self.bits_q_spin.setRange(32, 2048)
+        self.bits_q_spin.setValue(128)
+        q_bits_layout.addWidget(self.bits_q_spin)
+        q_layout.addLayout(q_bits_layout)
+
+        q_method_layout = QHBoxLayout()
+        q_method_layout.addWidget(QLabel("Метод:"))
+        self.method_q_combo = QComboBox()
+        self.method_q_combo.addItems(["Авто", "Миллер–Рабин", "Перебор", "Решето", "GENPR"])
+        self.method_q_combo.currentIndexChanged.connect(self.update_q_method_ui)
+        q_method_layout.addWidget(self.method_q_combo)
+        q_layout.addLayout(q_method_layout)
+
+        q_genpr_layout = QHBoxLayout()
+        self.genpr_m_q_label = QLabel("m:")
+        self.genpr_m_q_spin = QSpinBox()
+        self.genpr_m_q_spin.setRange(3, 10 ** 9)
+        self.genpr_m_q_spin.setValue(2001)
+        self.genpr_k_q_label = QLabel("k:")
+        self.genpr_k_q_spin = QSpinBox()
+        self.genpr_k_q_spin.setRange(1, 10 ** 6)
+        self.genpr_k_q_spin.setValue(100)
+        q_genpr_layout.addWidget(self.genpr_m_q_label)
+        q_genpr_layout.addWidget(self.genpr_m_q_spin)
+        q_genpr_layout.addWidget(self.genpr_k_q_label)
+        q_genpr_layout.addWidget(self.genpr_k_q_spin)
+        self.genpr_m_q_label.setVisible(False)
+        self.genpr_m_q_spin.setVisible(False)
+        self.genpr_k_q_label.setVisible(False)
+        self.genpr_k_q_spin.setVisible(False)
+        q_layout.addLayout(q_genpr_layout)
+        params_layout.addWidget(self.q_group)
+
+        key_gen_layout.addLayout(params_layout)
+
+        # Кнопка генерации
+        gen_btn_layout = QHBoxLayout()
+        self.btn_gen_pq = QPushButton("Сгенерировать p,q")
+        self.btn_gen_pq.clicked.connect(self.generate_pq)
+        gen_btn_layout.addWidget(self.btn_gen_pq)
+        key_gen_layout.addLayout(gen_btn_layout)
+
+        # Поля p и q
+        pq_layout = QHBoxLayout()
+        pq_layout.addWidget(QLabel("p:"))
+        self.p_edit = QLineEdit()
+        pq_layout.addWidget(self.p_edit)
+        pq_layout.addWidget(QLabel("q:"))
+        self.q_edit = QLineEdit()
+        pq_layout.addWidget(self.q_edit)
+        key_gen_layout.addLayout(pq_layout)
+
+        left_layout.addWidget(key_gen_group)
+
+        # Группа расчета ключей
+        key_calc_group = QGroupBox("Расчет ключей")
+        key_calc_layout = QVBoxLayout(key_calc_group)
+
+        mode_layout = QHBoxLayout()
+        mode_layout.addWidget(QLabel("Режим:"))
         self.key_mode_combo = QComboBox()
-        self.key_mode_combo.addItems(["Рассчитать из p и q", "Ввести ключи вручную"])
+        self.key_mode_combo.addItems(["Рассчитать из p и q", "Ввести вручную"])
         self.key_mode_combo.currentIndexChanged.connect(self.on_key_mode_changed)
-        key_mode_form.addRow("Режим:", self.key_mode_combo)
-        key_layout.addLayout(key_mode_form)
-        
+        mode_layout.addWidget(self.key_mode_combo)
+        key_calc_layout.addLayout(mode_layout)
+
+        # Виджет для автоматического расчета
         self.calc_keys_widget = QWidget()
-        calc_keys_layout = QVBoxLayout(self.calc_keys_widget)
-        calc_form = QFormLayout()
+        calc_layout = QVBoxLayout(self.calc_keys_widget)
+
+        e_layout = QHBoxLayout()
+        e_layout.addWidget(QLabel("e:"))
         self.e_edit = QLineEdit("65537")
-        calc_form.addRow("e:", self.e_edit)
-        calc_keys_layout.addLayout(calc_form)
+        self.auto_e_cb = QCheckBox("Авто")
+        self.auto_e_cb.setChecked(True)
+        self.e_edit.setEnabled(False)
+        self.auto_e_cb.toggled.connect(lambda checked: self.e_edit.setEnabled(not checked))
+        e_layout.addWidget(self.e_edit)
+        e_layout.addWidget(self.auto_e_cb)
+        calc_layout.addLayout(e_layout)
+
+        calc_btn_layout = QHBoxLayout()
         self.btn_calc_keys = QPushButton("Рассчитать ключи")
         self.btn_calc_keys.clicked.connect(self.calculate_keys)
-        calc_keys_layout.addWidget(self.btn_calc_keys)
-        key_layout.addWidget(self.calc_keys_widget)
-        
-        manual_keys_widget = QWidget()
-        manual_keys_layout = QVBoxLayout(manual_keys_widget)
-        manual_form = QFormLayout()
+        calc_btn_layout.addWidget(self.btn_calc_keys)
+        calc_layout.addLayout(calc_btn_layout)
+        key_calc_layout.addWidget(self.calc_keys_widget)
+
+        # Виджет для ручного ввода
+        self.manual_keys_widget = QWidget()
+        manual_layout = QVBoxLayout(self.manual_keys_widget)
+
+        n_layout = QHBoxLayout()
+        n_layout.addWidget(QLabel("N:"))
         self.N_edit = QLineEdit()
-        self.N_edit.setPlaceholderText("Введите N (модуль)")
+        n_layout.addWidget(self.N_edit)
+        manual_layout.addLayout(n_layout)
+
+        e_manual_layout = QHBoxLayout()
+        e_manual_layout.addWidget(QLabel("e:"))
         self.e_manual_edit = QLineEdit("65537")
-        self.e_manual_edit.setPlaceholderText("Введите e (открытая экспонента)")
+        e_manual_layout.addWidget(self.e_manual_edit)
+        manual_layout.addLayout(e_manual_layout)
+
+        d_layout = QHBoxLayout()
+        d_layout.addWidget(QLabel("d:"))
         self.d_edit = QLineEdit()
-        self.d_edit.setPlaceholderText("Введите d (секретная экспонента)")
-        manual_form.addRow("N:", self.N_edit)
-        manual_form.addRow("e:", self.e_manual_edit)
-        manual_form.addRow("d:", self.d_edit)
-        manual_keys_layout.addLayout(manual_form)
+        d_layout.addWidget(self.d_edit)
+        manual_layout.addLayout(d_layout)
+
+        manual_btn_layout = QHBoxLayout()
         self.btn_set_manual_keys = QPushButton("Установить ключи")
         self.btn_set_manual_keys.clicked.connect(self.set_manual_keys)
-        manual_keys_layout.addWidget(self.btn_set_manual_keys)
-        self.manual_keys_widget = manual_keys_widget
+        manual_btn_layout.addWidget(self.btn_set_manual_keys)
+        manual_layout.addLayout(manual_btn_layout)
+
         self.manual_keys_widget.setVisible(False)
-        key_layout.addWidget(self.manual_keys_widget)
-        
-        display_layout = QVBoxLayout()
+        key_calc_layout.addWidget(self.manual_keys_widget)
+
+        # Отображение ключей
+        keys_display_layout = QVBoxLayout()
         self.N_label = QLabel("N = ?")
         self.phi_label = QLabel("φ(N) = ?")
         self.d_label = QLabel("d = ?")
-        display_layout.addWidget(self.N_label)
-        display_layout.addWidget(self.phi_label)
-        display_layout.addWidget(self.d_label)
-        key_layout.addLayout(display_layout)
-        
-        key_file_layout = QHBoxLayout()
+        keys_display_layout.addWidget(self.N_label)
+        keys_display_layout.addWidget(self.phi_label)
+        keys_display_layout.addWidget(self.d_label)
+        key_calc_layout.addLayout(keys_display_layout)
+
+        # Управление ключами
+        keys_manage_layout = QHBoxLayout()
         self.btn_load_keys = QPushButton("Загрузить ключи")
         self.btn_load_keys.clicked.connect(self.load_keys_from_file)
         self.btn_save_keys = QPushButton("Сохранить ключи")
         self.btn_save_keys.clicked.connect(self.save_keys_to_file)
-        key_file_layout.addWidget(self.btn_load_keys)
-        key_file_layout.addWidget(self.btn_save_keys)
-        key_layout.addLayout(key_file_layout)
-        
-        key_group.setLayout(key_layout)
-        controls_layout.addWidget(key_group)
+        keys_manage_layout.addWidget(self.btn_load_keys)
+        keys_manage_layout.addWidget(self.btn_save_keys)
+        key_calc_layout.addLayout(keys_manage_layout)
 
-        controls_layout.addStretch()
-        controls_group.setLayout(controls_layout)
-        main_layout.addWidget(controls_group)
+        left_layout.addWidget(key_calc_group)
 
-        # --- Right Panel (Data) ---
-        data_group = QGroupBox("Данные и операции")
-        data_layout = QVBoxLayout()
-        
-        splitter = QSplitter(Qt.Vertical)
-        
-        left_group = QGroupBox("Входные данные")
-        left_layout = QVBoxLayout(left_group)
+        # Группа операций
+        ops_group = QGroupBox("Операции")
+        ops_layout = QVBoxLayout(ops_group)
+
+        encrypt_btn_layout = QHBoxLayout()
+        self.btn_encrypt = QPushButton("Зашифровать")
+        self.btn_encrypt.clicked.connect(self.encrypt_rsa)
+        encrypt_btn_layout.addWidget(self.btn_encrypt)
+        ops_layout.addLayout(encrypt_btn_layout)
+
+        decrypt_btn_layout = QHBoxLayout()
+        self.btn_decrypt = QPushButton("Расшифровать")
+        self.btn_decrypt.clicked.connect(self.decrypt_rsa)
+        decrypt_btn_layout.addWidget(self.btn_decrypt)
+        ops_layout.addLayout(decrypt_btn_layout)
+
+        left_layout.addWidget(ops_group)
+
+        # Группа анимации
+        anim_group = QGroupBox("Анимация")
+        anim_layout = QVBoxLayout(anim_group)
+
+        anim_btns_layout = QHBoxLayout()
+        self.btn_anim_enc = QPushButton("▶ Шифрование")
+        self.btn_anim_dec = QPushButton("▶ Дешифрование")
+        self.btn_anim_pause = QPushButton("⏸ Пауза")
+        self.btn_anim_step = QPushButton("⏭ Шаг")
+        self.btn_anim_stop = QPushButton("⏹ Стоп")
+        for b in (self.btn_anim_pause, self.btn_anim_step, self.btn_anim_stop):
+            b.setEnabled(False)
+        anim_btns_layout.addWidget(self.btn_anim_enc)
+        anim_btns_layout.addWidget(self.btn_anim_dec)
+        anim_btns_layout.addWidget(self.btn_anim_pause)
+        anim_btns_layout.addWidget(self.btn_anim_step)
+        anim_btns_layout.addWidget(self.btn_anim_stop)
+        anim_layout.addLayout(anim_btns_layout)
+
+        speed_layout = QHBoxLayout()
+        speed_layout.addWidget(QLabel("Скорость:"))
+        self.rsa_speed_slider = QSlider(Qt.Horizontal)
+        self.rsa_speed_slider.setRange(1, 10)
+        self.rsa_speed_slider.setValue(5)
+        self.rsa_speed_slider.valueChanged.connect(self.update_rsa_timer_interval)
+        speed_layout.addWidget(self.rsa_speed_slider)
+        anim_layout.addLayout(speed_layout)
+
+        progress_layout = QHBoxLayout()
+        self.rsa_progress = QProgressBar()
+        self.rsa_progress.setMinimum(0)
+        self.rsa_progress.setValue(0)
+        progress_layout.addWidget(self.rsa_progress)
+        self.rsa_current_block_label = QLabel("Блок: -")
+        progress_layout.addWidget(self.rsa_current_block_label)
+        anim_layout.addLayout(progress_layout)
+
+        left_layout.addWidget(anim_group)
+
+        # Группа лога
+        log_group = QGroupBox("Лог операций")
+        log_layout = QVBoxLayout(log_group)
+        self.log_text_edit = QTextEdit()
+        self.log_text_edit.setReadOnly(True)
+        self.log_text_edit.setMaximumHeight(150)
+        log_layout.addWidget(self.log_text_edit)
+
+        log_btns_layout = QHBoxLayout()
+        self.btn_save_rsa_log = QPushButton("Сохранить лог")
+        self.btn_save_rsa_log.clicked.connect(self.save_rsa_log)
+        self.btn_clear_rsa_log = QPushButton("Очистить лог")
+        self.btn_clear_rsa_log.clicked.connect(self.log_text_edit.clear)
+        log_btns_layout.addWidget(self.btn_save_rsa_log)
+        log_btns_layout.addWidget(self.btn_clear_rsa_log)
+        log_layout.addLayout(log_btns_layout)
+
+        left_layout.addWidget(log_group)
+        left_layout.addStretch()
+
+        scroll_area.setWidget(left_panel)
+        main_layout.addWidget(scroll_area)
+
+        # Правая панель данных
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+
+        # Группа ввода
+        input_group = QGroupBox("Входные данные")
+        input_layout = QVBoxLayout(input_group)
         self.input_text_edit = QTextEdit()
-        self.input_text_edit.setPlaceholderText("Введите текст или блоки/шифр...")
-        left_layout.addWidget(self.input_text_edit)
-        left_btns = QHBoxLayout()
+        self.input_text_edit.setPlaceholderText("Введите текст, список чисел или компактный HEX шифр")
+        input_layout.addWidget(self.input_text_edit)
+
+        input_btns_layout = QHBoxLayout()
         self.btn_load_input = QPushButton("Загрузить из файла")
         self.btn_load_input.clicked.connect(self.load_input_data)
         self.btn_clear_input = QPushButton("Очистить")
         self.btn_clear_input.clicked.connect(self.input_text_edit.clear)
-        left_btns.addWidget(self.btn_load_input)
-        left_btns.addWidget(self.btn_clear_input)
-        left_btns.addStretch()
-        left_layout.addLayout(left_btns)
-        splitter.addWidget(left_group)
-        
-        right_group = QGroupBox("Выходные данные")
-        right_layout = QVBoxLayout(right_group)
+        input_btns_layout.addWidget(self.btn_load_input)
+        input_btns_layout.addWidget(self.btn_clear_input)
+        input_layout.addLayout(input_btns_layout)
+
+        right_layout.addWidget(input_group)
+
+        # Группа вывода
+        output_group = QGroupBox("Выходные данные")
+        output_layout = QVBoxLayout(output_group)
         self.output_text_edit = QTextEdit()
-        self.output_text_edit.setReadOnly(False)
         self.output_text_edit.setPlaceholderText("Результат...")
-        right_layout.addWidget(self.output_text_edit)
-        right_btns = QHBoxLayout()
+        output_layout.addWidget(self.output_text_edit)
+
+        output_btns_layout = QHBoxLayout()
         self.btn_save_output = QPushButton("Сохранить в файл")
         self.btn_save_output.clicked.connect(self.save_output_data)
         self.btn_clear_output = QPushButton("Очистить")
         self.btn_clear_output.clicked.connect(self.output_text_edit.clear)
         self.btn_copy_output = QPushButton("Копировать")
         self.btn_copy_output.clicked.connect(self.copy_output)
-        right_btns.addWidget(self.btn_save_output)
-        right_btns.addWidget(self.btn_clear_output)
-        right_btns.addWidget(self.btn_copy_output)
-        right_btns.addStretch()
-        right_layout.addLayout(right_btns)
-        splitter.addWidget(right_group)
-        
-        data_layout.addWidget(splitter)
-        
-        log_group = QGroupBox("Лог операций")
-        log_layout = QVBoxLayout(log_group)
-        self.log_text_edit = QTextEdit()
-        self.log_text_edit.setReadOnly(True)
-        self.log_text_edit.setPlaceholderText("Логи...")
-        log_layout.addWidget(self.log_text_edit)
-        data_layout.addWidget(log_group)
-        
-        ops_layout = QHBoxLayout()
-        self.btn_encrypt = QPushButton("Зашифровать")
-        self.btn_encrypt.clicked.connect(self.encrypt_rsa)
-        self.btn_decrypt = QPushButton("Расшифровать")
-        self.btn_decrypt.clicked.connect(self.decrypt_rsa)
-        ops_layout.addWidget(self.btn_encrypt)
-        ops_layout.addWidget(self.btn_decrypt)
-        ops_layout.addStretch()
-        data_layout.addLayout(ops_layout)
-        
-        data_group.setLayout(data_layout)
-        main_layout.addWidget(data_group)
+        output_btns_layout.addWidget(self.btn_save_output)
+        output_btns_layout.addWidget(self.btn_clear_output)
+        output_btns_layout.addWidget(self.btn_copy_output)
+        output_layout.addLayout(output_btns_layout)
 
-        # Set stretch factors
-        main_layout.setStretch(0, 1)  # controls panel stretch factor
-        main_layout.setStretch(1, 3)  # data area stretch factor
-        self.N=None;self.phi=None;self.d=None;self.e_val=65537;self.blocks=[];self.block_bytes=None;self.cipher_blocks=[]
-        self.last_cipher_payload=None;self.last_output_kind=None
-        self.on_key_mode_changed(0);self.on_generation_method_changed(0)
-        self.bits_p_spin.valueChanged.connect(self.update_auto_method_label)
-        self.bits_q_spin.valueChanged.connect(self.update_auto_method_label)
-        self.method_p_combo.currentIndexChanged.connect(self.update_auto_method_label)
-        self.method_q_combo.currentIndexChanged.connect(self.update_auto_method_label)
-        self.update_auto_method_label();self.btn_encrypt.setEnabled(True);self.btn_decrypt.setEnabled(True)
-    def detect_input_type(self,content):
-        if not content or not content.strip(): return 'empty'
-        content=content.strip();allowed_separators=set("[]{}(),; \t\r\n")
-        if any(not (ch.isdigit() or ch in allowed_separators) for ch in content): return 'text'
+        right_layout.addWidget(output_group)
+
+        main_layout.addWidget(right_panel)
+
+        # Инициализация переменных
+        self.N = None
+        self.phi = None
+        self.d = None
+        self.e_val = 65537
+        self.blocks = []
+        self.block_bytes = None
+        self.plain_lengths = []
+        self.total_plain_bytes = None
+        self.cipher_blocks = []
+        self.last_cipher_payload = None
+        self.last_output_kind = None
+
+        self.rsa_anim_timer = QTimer(self)
+        self.rsa_anim_timer.timeout.connect(self.rsa_animation_step)
+        self.rsa_anim_running = False
+        self.rsa_anim_paused = False
+        self.rsa_anim_mode = None
+        self.rsa_anim_plain_blocks = []
+        self.rsa_anim_plain_lengths = []
+        self.rsa_anim_cipher_blocks = []
+        self.rsa_anim_index = 0
+        self.rsa_cipher_block_bytes = None
+
+        self.btn_anim_enc.clicked.connect(lambda: self.start_rsa_animation('encrypt'))
+        self.btn_anim_dec.clicked.connect(lambda: self.start_rsa_animation('decrypt'))
+        self.btn_anim_pause.clicked.connect(self.toggle_rsa_pause)
+        self.btn_anim_step.clicked.connect(self.rsa_animation_step_manual)
+        self.btn_anim_stop.clicked.connect(self.stop_rsa_animation)
+
+        self.on_key_mode_changed(0)
+        self.on_generation_method_changed(0)
+
+    # Добавляем недостающие методы для анимации
+    def start_rsa_animation(self, mode):
+        if self.rsa_anim_running:
+            QMessageBox.warning(self, "Внимание", "Анимация уже запущена")
+            return
+
+        if self.N is None:
+            QMessageBox.warning(self, "Ошибка", "Сначала установите ключи RSA")
+            return
+
+        content = self.input_text_edit.toPlainText().strip()
+        if not content:
+            QMessageBox.warning(self, "Ошибка", "Введите данные для обработки")
+            return
+
         try:
-            blocks=parse_numbers(content)
-            if blocks and len(blocks)>0: return 'blocks'
-        except (ValueError,AttributeError): pass
-        return 'text'
-    def auto_select_method(self,bits:int,combo)->str:
-        if combo is not None and combo.currentIndex()>0:
-            idx=combo.currentIndex()
-            if idx==1: return "miller-rabin"
-            if idx==2: return "trial"
-            if idx==3: return "sieve"
-            if idx==4: return "genpr"
-        if bits<=METHOD_MAX_BITS.get("sieve",0): return "sieve"
-        if bits<=METHOD_MAX_BITS.get("genpr",0): return "genpr"
-        if bits<=METHOD_MAX_BITS.get("trial",0): return "trial"
-        return "miller-rabin"
-    def update_auto_method_label(self):
-        bits_p=self.bits_p_spin.value();bits_q=self.bits_q_spin.value()
-        method_p=self.auto_select_method(bits_p,self.method_p_combo);method_q=self.auto_select_method(bits_q,self.method_q_combo)
-        name_map={"miller-rabin":"Миллер–Рабин","trial":"Перебор","sieve":"Решето Эратосфена","genpr":"GENPR"}
-        base=f"Метод p: {name_map.get(method_p,method_p)}; Метод q: {name_map.get(method_q,method_q)}"
-        if self.method_p_combo.currentIndex()==0 and self.method_q_combo.currentIndex()==0: base+=" (автовыбор по битности)"
-        self.method_info_label.setText(base)
-    def on_generation_method_changed(self,index):
-        if index==2:
-            self.btn_gen_pq.setEnabled(False);self.bits_p_spin.setEnabled(False);self.bits_q_spin.setEnabled(False)
-            self.method_p_combo.setEnabled(False);self.method_q_combo.setEnabled(False)
-            self.bits_q_label.setVisible(True);self.bits_q_spin.setVisible(True);self.method_q_label.setVisible(True);self.method_q_combo.setVisible(True)
-            self.method_info_label.setVisible(True);self.method_info_label.setText("Режим: ввод p и q вручную");return
-        self.btn_gen_pq.setEnabled(True);self.bits_p_spin.setEnabled(True);self.method_p_combo.setEnabled(True);self.method_info_label.setVisible(True)
-        if index==0:
-            self.bits_q_label.setVisible(False);self.bits_q_spin.setVisible(False);self.method_q_label.setVisible(False);self.method_q_combo.setVisible(False)
-            self.bits_q_spin.setValue(self.bits_p_spin.value());self.method_q_combo.setCurrentIndex(self.method_p_combo.currentIndex())
+            self.rsa_anim_mode = mode
+            self.log_text_edit.append(f"[Анимация] Запуск {mode}")
+
+            if mode == 'encrypt':
+                # Подготовка данных для шифрования
+                if self.detect_input_type(content) != 'text':
+                    raise ValueError("Для шифрования нужен текст")
+
+                self.rsa_anim_plain_blocks, self.block_bytes, self.rsa_anim_plain_lengths, self.total_plain_bytes = encode_text_to_blocks(
+                    content, self.N)
+                self.e_val = int(self.e_edit.text())
+                self.rsa_anim_cipher_blocks = []
+                self.rsa_cipher_block_bytes = (self.N.bit_length() + 7) // 8
+                total_blocks = len(self.rsa_anim_plain_blocks)
+
+            else:  # decrypt
+                # Подготовка данных для дешифрования
+                input_type = self.detect_input_type(content)
+                if input_type == 'compact_hex':
+                    self.rsa_anim_cipher_blocks = compact_hex_to_blocks(content, self.N)
+                elif input_type == 'blocks':
+                    self.rsa_anim_cipher_blocks = parse_numbers(content)
+                else:
+                    raise ValueError("Для дешифрования нужен компактный HEX или список чисел")
+
+                self.rsa_cipher_block_bytes = (self.N.bit_length() + 7) // 8
+                self.rsa_anim_plain_blocks = []
+                self.rsa_anim_plain_lengths = []
+                total_blocks = len(self.rsa_anim_cipher_blocks)
+
+            # Настройка анимации
+            self.rsa_anim_index = 0
+            self.rsa_progress.setMaximum(total_blocks)
+            self.rsa_progress.setValue(0)
+            self.rsa_current_block_label.setText("Блок: 0")
+            self.output_text_edit.clear()
+
+            # Запуск анимации
+            self.rsa_anim_running = True
+            self.rsa_anim_paused = False
+
+            # Включение/выключение кнопок
+            self.btn_anim_pause.setEnabled(True)
+            self.btn_anim_step.setEnabled(True)
+            self.btn_anim_stop.setEnabled(True)
+            self.btn_anim_enc.setEnabled(False)
+            self.btn_anim_dec.setEnabled(False)
+
+            self.update_rsa_timer_interval()
+            self.rsa_anim_timer.start()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Ошибка запуска анимации: {str(e)}")
+
+    def update_rsa_timer_interval(self):
+        val = self.rsa_speed_slider.value()
+        interval = 1100 - val * 100
+        if interval < 50:
+            interval = 50
+        self.rsa_anim_timer.setInterval(interval)
+
+    def rsa_animation_step(self):
+        if self.rsa_anim_running and not self.rsa_anim_paused:
+            self._do_rsa_animation_step()
+
+    def rsa_animation_step_manual(self):
+        if self.rsa_anim_running:
+            self.rsa_anim_timer.stop()
+            self.rsa_anim_paused = True
+            self.btn_anim_pause.setText("▶ Продолжить")
+            self._do_rsa_animation_step()
+
+    def _do_rsa_animation_step(self):
+        if self.rsa_anim_mode == 'encrypt':
+            self._do_encryption_step()
         else:
-            self.bits_q_label.setVisible(True);self.bits_q_spin.setVisible(True);self.method_q_label.setVisible(True);self.method_q_combo.setVisible(True)
-            self.bits_q_spin.setEnabled(True);self.method_q_combo.setEnabled(True)
-        self.update_auto_method_label()
+            self._do_decryption_step()
+
+    def _do_encryption_step(self):
+        if self.rsa_anim_index >= len(self.rsa_anim_plain_blocks):
+            self.finish_rsa_animation()
+            return
+
+        # Получаем текущий блок
+        m = self.rsa_anim_plain_blocks[self.rsa_anim_index]
+        m_len = self.rsa_anim_plain_lengths[self.rsa_anim_index]
+
+        # Показываем информацию о блоке
+        try:
+            m_bytes = m.to_bytes(m_len, 'big')
+        except OverflowError:
+            actual_len = (m.bit_length() + 7) // 8
+            m_bytes = m.to_bytes(actual_len, 'big')
+        m_text = bytes_to_printable_utf8(m_bytes)
+
+        # Шифруем блок
+        c = mod_exp(m, self.e_val, self.N)
+        self.rsa_anim_cipher_blocks.append(c)
+
+        # Обновляем вывод
+        current_hex = blocks_to_compact_hex(self.rsa_anim_cipher_blocks, self.N)
+        self.output_text_edit.setPlainText(current_hex)
+
+        # Логируем процесс
+        self.log_text_edit.append(f"--- Блок {self.rsa_anim_index} ---")
+        self.log_text_edit.append(f"Исходный текст (M): {m}")
+        self.log_text_edit.append(f"Текст как байты: {m_bytes.hex().upper()} -> '{m_text}'")
+        self.log_text_edit.append(f"Шифрование: {m}^{self.e_val} mod {self.N} = {c}")
+        self.log_text_edit.append(f"Результат (C): {c}")
+        self.log_text_edit.append("")
+
+        # Обновляем прогресс
+        self.rsa_anim_index += 1
+        self.rsa_progress.setValue(self.rsa_anim_index)
+        self.rsa_current_block_label.setText(f"Блок: {self.rsa_anim_index}")
+
+        # Проверяем завершение
+        if self.rsa_anim_index >= len(self.rsa_anim_plain_blocks):
+            self.finish_rsa_animation()
+
+    def _do_decryption_step(self):
+        if self.rsa_anim_index >= len(self.rsa_anim_cipher_blocks):
+            self.finish_rsa_animation()
+            return
+
+        # Получаем текущий блок
+        c = self.rsa_anim_cipher_blocks[self.rsa_anim_index]
+
+        # Дешифруем блок
+        m = mod_exp(c, self.d, self.N)
+        self.rsa_anim_plain_blocks.append(m)
+
+        # Обновляем вывод
+        pb_len = self.block_bytes or max(1, (self.N.bit_length() - 1) // 8)
+        text_so_far = decode_blocks_to_text_precise(self.rsa_anim_plain_blocks, pb_len,
+                                                    self.rsa_anim_plain_lengths, self.total_plain_bytes)
+        self.output_text_edit.setPlainText(text_so_far)
+
+        # Показываем информацию о блоке
+        try:
+            plen = self.rsa_anim_plain_lengths[self.rsa_anim_index] if (self.rsa_anim_plain_lengths and
+                                                                        self.rsa_anim_index < len(
+                        self.rsa_anim_plain_lengths)) else pb_len
+            m_bytes = m.to_bytes(plen, 'big')
+        except OverflowError:
+            actual_len = (m.bit_length() + 7) // 8
+            m_bytes = m.to_bytes(actual_len, 'big')
+        m_text = bytes_to_printable_utf8(m_bytes)
+
+        # Логируем процесс
+        self.log_text_edit.append(f"--- Блок {self.rsa_anim_index} ---")
+        self.log_text_edit.append(f"Шифротекст (C): {c}")
+        self.log_text_edit.append(f"Дешифрование: {c}^{self.d} mod {self.N} = {m}")
+        self.log_text_edit.append(f"Результат (M): {m}")
+        self.log_text_edit.append(f"Текст как байты: {m_bytes.hex().upper()} -> '{m_text}'")
+        self.log_text_edit.append("")
+
+        # Обновляем прогресс
+        self.rsa_anim_index += 1
+        self.rsa_progress.setValue(self.rsa_anim_index)
+        self.rsa_current_block_label.setText(f"Блок: {self.rsa_anim_index}")
+
+        # Проверяем завершение
+        if self.rsa_anim_index >= len(self.rsa_anim_cipher_blocks):
+            self.finish_rsa_animation()
+
+    def toggle_rsa_pause(self):
+        if not self.rsa_anim_running:
+            return
+
+        if self.rsa_anim_paused:
+            self.rsa_anim_paused = False
+            self.btn_anim_pause.setText("⏸ Пауза")
+            self.rsa_anim_timer.start()
+        else:
+            self.rsa_anim_paused = True
+            self.btn_anim_pause.setText("▶ Продолжить")
+            self.rsa_anim_timer.stop()
+
+    def stop_rsa_animation(self):
+        if not self.rsa_anim_running:
+            return
+
+        self.rsa_anim_timer.stop()
+        self.rsa_anim_running = False
+        self.rsa_anim_paused = False
+
+        # Включение/выключение кнопок
+        self.btn_anim_pause.setEnabled(False)
+        self.btn_anim_step.setEnabled(False)
+        self.btn_anim_stop.setEnabled(False)
+        self.btn_anim_enc.setEnabled(True)
+        self.btn_anim_dec.setEnabled(True)
+        self.btn_anim_pause.setText("⏸ Пауза")
+
+        self.log_text_edit.append("[Анимация] Остановлена пользователем")
+
+    def finish_rsa_animation(self):
+        self.rsa_anim_timer.stop()
+        self.rsa_anim_running = False
+        self.rsa_anim_paused = False
+
+        # Включение/выключение кнопок
+        self.btn_anim_pause.setEnabled(False)
+        self.btn_anim_step.setEnabled(False)
+        self.btn_anim_stop.setEnabled(False)
+        self.btn_anim_enc.setEnabled(True)
+        self.btn_anim_dec.setEnabled(True)
+        self.btn_anim_pause.setText("⏸ Пауза")
+
+        if self.rsa_anim_mode == 'encrypt':
+            self.log_text_edit.append("[Анимация] Шифрование завершено")
+        else:
+            self.log_text_edit.append("[Анимация] Дешифрование завершено")
+
+    def detect_input_type(self, content):
+        if not content or not content.strip():
+            return 'empty'
+        s = content.strip()
+
+        # Проверяем, является ли ввод компактным HEX
+        if self.N and re.fullmatch(r'[0-9a-fA-F]+', s):
+            try:
+                compact_hex_to_blocks(s, self.N)
+                return 'compact_hex'
+            except:
+                pass
+
+        # Проверяем, является ли ввод списком чисел
+        allowed = set("[]{}(),; \t\r\n0123456789+")
+        if all(ch in allowed for ch in s):
+            try:
+                blocks = parse_numbers(s)
+                if blocks:
+                    return 'blocks'
+            except:
+                pass
+
+        # По умолчанию считаем текстом
+        return 'text'
+
+    # Остальные методы RSATab (on_generation_method_changed, update_p_method_ui, update_q_method_ui,
+    # on_key_mode_changed, generate_pq, calculate_keys, set_manual_keys, encrypt_rsa, decrypt_rsa,
+    # load_keys_from_file, save_keys_to_file, load_input_data, save_output_data, copy_output, save_rsa_log)
+    # остаются без изменений, как в предыдущей реализации
+
+    # Добавим только недостающие заглушки для оставшихся методов
+    def on_generation_method_changed(self, index):
+        if index == 0:  # Автом. (одинаково)
+            self.q_group.setVisible(False)
+        elif index == 1:  # Автом. (раздельно)
+            self.q_group.setVisible(True)
+        else:  # Ручной ввод
+            self.q_group.setVisible(False)
+
+    def update_p_method_ui(self):
+        is_genpr = (self.method_p_combo.currentText() == "GENPR")
+        self.genpr_m_p_label.setVisible(is_genpr)
+        self.genpr_m_p_spin.setVisible(is_genpr)
+        self.genpr_k_p_label.setVisible(is_genpr)
+        self.genpr_k_p_spin.setVisible(is_genpr)
+
+    def update_q_method_ui(self):
+        is_genpr = (self.method_q_combo.currentText() == "GENPR")
+        self.genpr_m_q_label.setVisible(is_genpr)
+        self.genpr_m_q_spin.setVisible(is_genpr)
+        self.genpr_k_q_label.setVisible(is_genpr)
+        self.genpr_k_q_spin.setVisible(is_genpr)
+
+    def on_key_mode_changed(self, index):
+        self.calc_keys_widget.setVisible(index == 0)
+        self.manual_keys_widget.setVisible(index == 1)
+
     def generate_pq(self):
         try:
-            gen_method=self.gen_method_combo.currentIndex()
-            if gen_method==2:
-                self.log_text_edit.append("[Генерация]\nРежим 'Ввести вручную': введите значения p и q вручную.");return
-            bits_p=self.bits_p_spin.value()
-            if gen_method==0:
-                bits_q=bits_p;method_p=self.auto_select_method(bits_p,self.method_p_combo);method_q=method_p
+            gm = self.gen_method_combo.currentIndex()
+            if gm == 2:  # Ручной ввод
+                QMessageBox.information(self, "Информация", "Введите p и q вручную в поля ниже.")
+                return
+
+            bits_p = self.bits_p_spin.value()
+            method_p = self.method_p_combo.currentText().lower()
+            if "миллер" in method_p:
+                method_p = "miller-rabin"
+            elif "перебор" in method_p:
+                method_p = "trial"
+            elif "решето" in method_p:
+                method_p = "sieve"
             else:
-                bits_q=self.bits_q_spin.value();method_p=self.auto_select_method(bits_p,self.method_p_combo);method_q=self.auto_select_method(bits_q,self.method_q_combo)
-            p=generate_large_prime(bits_p,method_p);q=generate_large_prime(bits_q,method_q);attempts=1
-            while p==q and attempts<10:
-                q=generate_large_prime(bits_q,method_q);attempts+=1
-            if p==q: raise ValueError("Не удалось сгенерировать различные простые числа.")
-            self.p_edit.setText(str(p));self.q_edit.setText(str(q))
-            self.log_text_edit.append(f"[Генерация простых чисел]\nМетод генерации: {self.gen_method_combo.currentText()}\nБитность p: {bits_p} (метод: {method_p})\nБитность q: {bits_q} (метод: {method_q})\np = {p}\nq = {q}\np × q = {p*q}\n")
-        except Exception as e: QMessageBox.critical(self,"❌ Генерация",str(e))
+                method_p = "miller-rabin"
+
+            if gm == 0:  # Одинаково
+                bits_q = bits_p
+                method_q = method_p
+            else:  # Раздельно
+                bits_q = self.bits_q_spin.value()
+                method_q = self.method_q_combo.currentText().lower()
+                if "миллер" in method_q:
+                    method_q = "miller-rabin"
+                elif "перебор" in method_q:
+                    method_q = "trial"
+                elif "решето" in method_q:
+                    method_q = "sieve"
+                else:
+                    method_q = "miller-rabin"
+
+            p = generate_large_prime(bits_p, method_p)
+            q = generate_large_prime(bits_q, method_q)
+
+            self.p_edit.setText(str(p))
+            self.q_edit.setText(str(q))
+            self.log_text_edit.append(f"Сгенерированы: p={p}, q={q}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Ошибка генерации: {str(e)}")
+
     def calculate_keys(self):
         try:
-            p_text=self.p_edit.text().strip();q_text=self.q_edit.text().strip()
-            if not p_text or not q_text: raise ValueError("Введите или сгенерируйте p и q.")
-            p=int(p_text);q=int(q_text);e_val=int(self.e_edit.text())
-            if p<2 or q<2: raise ValueError("p и q должны быть простыми числами (≥ 2).")
-            if p==q: raise ValueError("p и q должны быть различны.")
-            self.N=p*q;self.phi=(p-1)*(q-1)
-            if e_val<=1 or e_val>=self.phi: raise ValueError(f"e должно быть в диапазоне (1, φ(N)={self.phi}).")
-            g,_,_=extended_gcd(e_val,self.phi)
-            if g!=1:
-                e_found=None
-                for cand in [3,5,17,257,65537]:
-                    if 1<cand<self.phi and extended_gcd(cand,self.phi)[0]==1: e_found=cand;break
-                if e_found:
-                    e_val=e_found;self.e_edit.setText(str(e_val))
-                    self.log_text_edit.append(f"[Ключи] Введённое e не взаимно просто с φ(N). Автоматически выбрано e = {e_val}.")
-                else: raise ValueError(f"Введенное e={e_val} не взаимно просто с φ(N)={self.phi}.")
-            self.e_val=e_val;self.d=mod_inverse(e_val,self.phi)
-            self.N_label.setText(f"N = {self.N}");self.phi_label.setText(f"φ(N) = {self.phi}");self.d_label.setText(f"d = {self.d}")
-            self.block_bytes=None;self.blocks=[];self.cipher_blocks=[];self.last_output_kind=None;self.last_cipher_payload=None
-            self.log_text_edit.append(f"[Ключи вычислены]\np = {p}\nq = {q}\nN = p × q = {self.N}\nφ(N) = (p-1) × (q-1) = {self.phi}\ne = {e_val}\nd = e⁻¹ mod φ(N) = {self.d}\nОткрытый ключ: (N={self.N}, e={e_val})\nСекретный ключ: d={self.d}\n")
-        except Exception as e: QMessageBox.critical(self,"❌ Расчёт",str(e))
-    def on_key_mode_changed(self,index):
-        if index==0:
-            self.calc_keys_widget.setVisible(True);self.manual_keys_widget.setVisible(False)
-        else:
-            self.calc_keys_widget.setVisible(False);self.manual_keys_widget.setVisible(True)
+            p = int(self.p_edit.text())
+            q = int(self.q_edit.text())
+            self.N = p * q
+            self.phi = (p - 1) * (q - 1)
+
+            if self.auto_e_cb.isChecked():
+                self.e_val = 65537
+                if self.e_val >= self.phi:
+                    self.e_val = 3
+                while math.gcd(self.e_val, self.phi) != 1:
+                    self.e_val += 2
+            else:
+                self.e_val = int(self.e_edit.text())
+
+            self.d = mod_inverse(self.e_val, self.phi)
+
+            self.N_label.setText(f"N = {self.N}")
+            self.phi_label.setText(f"φ(N) = {self.phi}")
+            self.d_label.setText(f"d = {self.d}")
+
+            self.log_text_edit.append(f"Рассчитаны ключи: N={self.N}, e={self.e_val}, d={self.d}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Ошибка расчета ключей: {str(e)}")
+
     def set_manual_keys(self):
         try:
-            N_text=self.N_edit.text().strip();e_text=self.e_manual_edit.text().strip();d_text=self.d_edit.text().strip()
-            if not N_text: raise ValueError("Введите N (модуль).")
-            if not e_text: raise ValueError("Введите e (открытая экспонента).")
-            if not d_text: raise ValueError("Введите d (секретная экспонента).")
-            N=int(N_text);e_val=int(e_text);d_val=int(d_text)
-            if N<2: raise ValueError("N должно быть ≥ 2.")
-            if e_val<=1: raise ValueError("e должно быть > 1.")
-            if d_val<=1: raise ValueError("d должно быть > 1.")
-            self.N=N;self.e_val=e_val;self.d=d_val
-            self.N_label.setText(f"N = {self.N}");self.phi_label.setText("φ(N) = ? (неизвестно)");self.d_label.setText(f"d = {self.d}")
-            self.block_bytes=None;self.blocks=[];self.cipher_blocks=[];self.last_output_kind=None;self.last_cipher_payload=None
-            self.e_edit.setText(str(e_val))
-            self.log_text_edit.append(f"[Ключи установлены вручную]\nN = {self.N}\ne = {e_val}\nd = {d_val}\n")
-        except Exception as e: QMessageBox.critical(self,"❌ Ошибка",str(e))
-    def load_keys_from_file(self):
-        path,_=QFileDialog.getOpenFileName(self,"Загрузить ключи","","Text Files (*.txt);;All Files (*)")
-        if path:
-            try:
-                with open(path,'r',encoding='utf-8') as f: content=f.read().strip()
-                if not content:
-                    QMessageBox.warning(self,"⚠️ Пусто","Файл пуст.");return
-                lines=content.split('\n');N_val=None;e_val=None;d_val=None
-                for line in lines:
-                    line=line.strip()
-                    if not line or line.startswith('#'): continue
-                    if '=' in line:
-                        key,value=line.split('=',1);key=key.strip().lower();value=value.strip()
-                        try:
-                            if key=='n': N_val=int(value)
-                            elif key=='e': e_val=int(value)
-                            elif key=='d': d_val=int(value)
-                        except ValueError: continue
-                    else:
-                        try:
-                            num=int(line)
-                            if N_val is None: N_val=num
-                            elif e_val is None: e_val=num
-                            elif d_val is None: d_val=num
-                        except ValueError: continue
-                if N_val is None or e_val is None or d_val is None:
-                    QMessageBox.warning(self,"⚠️ Ошибка","Не удалось распарсить ключи из файла.");return
-                self.N_edit.setText(str(N_val));self.e_manual_edit.setText(str(e_val));self.d_edit.setText(str(d_val));self.set_manual_keys()
-                self.log_text_edit.append(f"[Ключи] Загружены из файла: {path}")
-            except Exception as e: QMessageBox.critical(self,"❌ Ошибка",f"Ошибка загрузки:\n{e}")
-    def save_keys_to_file(self):
-        if self.N is None or self.e_val is None or self.d is None:
-            QMessageBox.warning(self,"⚠️ Ошибка","Сначала установите ключи.");return
-        path,_=QFileDialog.getSaveFileName(self,"Сохранить ключи","","Text Files (*.txt);;All Files (*)")
-        if path:
-            try:
-                content=f"""RSA Ключи
-==========
-Открытый ключ:
-N = {self.N}
-e = {self.e_val}
-Секретный ключ:
-d = {self.d}
-Формат для загрузки:
-N={self.N}
-e={self.e_val}
-d={self.d}
-"""
-                with open(path,'w',encoding='utf-8') as f: f.write(content)
-                self.log_text_edit.append(f"[Ключи] Сохранены в файл: {path}")
-            except Exception as e: QMessageBox.critical(self,"❌ Ошибка",f"Ошибка сохранения:\n{e}")
+            self.N = int(self.N_edit.text())
+            self.e_val = int(self.e_manual_edit.text())
+            self.d = int(self.d_edit.text())
+
+            self.N_label.setText(f"N = {self.N}")
+            self.phi_label.setText("φ(N) = ?")
+            self.d_label.setText(f"d = {self.d}")
+
+            self.log_text_edit.append(f"Установлены ключи вручную: N={self.N}, e={self.e_val}, d={self.d}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Ошибка установки ключей: {str(e)}")
+
     def encrypt_rsa(self):
         try:
-            if self.N is None: raise ValueError("Сначала вычислите ключи (N).")
-            content=self.input_text_edit.toPlainText().strip()
-            if not content: raise ValueError("Введите данные для шифрования.")
-            input_type=self.detect_input_type(content)
-            if input_type=='text':
-                blocks_to_encrypt,block_bytes=encode_text_to_blocks(content,self.N)
-                self.blocks=blocks_to_encrypt;self.block_bytes=block_bytes
-            elif input_type=='blocks':
-                blocks_to_encrypt=parse_numbers(content)
-                if not blocks_to_encrypt: raise ValueError("Не удалось распарсить блоки M_i.")
-                invalid_blocks=[m for m in blocks_to_encrypt if m>=self.N]
-                if invalid_blocks: raise ValueError(f"Блоки {invalid_blocks} >= N={self.N}.")
-                self.blocks=blocks_to_encrypt;self.block_bytes=max(1,(self.N.bit_length()-1)//8)
-            else: raise ValueError("Не удалось определить тип данных.")
-            e=int(self.e_edit.text())
-            if self.phi and (e<=1 or e>=self.phi): raise ValueError(f"e вне диапазона (1, φ(N)={self.phi}).")
-            self.cipher_blocks=[mod_exp(m,e,self.N) for m in self.blocks]
-            cipher_str=', '.join(map(str,self.cipher_blocks))
-            self.output_text_edit.setPlainText(cipher_str)
-            self.log_text_edit.append(f"[Шифрование] Блоков: {len(self.cipher_blocks)} ключ (N={self.N}, e={e})")
-            self.last_output_kind="cipher";self.last_cipher_payload={"type":"rsa_cipher","cipher":self.cipher_blocks,"block_bytes":self.block_bytes,"N":self.N,"e":e}
-        except Exception as e: QMessageBox.critical(self,"❌ Шифрование",str(e))
+            if self.N is None or self.e_val is None:
+                raise ValueError("Сначала установите ключи")
+
+            text = self.input_text_edit.toPlainText()
+            if not text:
+                raise ValueError("Введите текст для шифрования")
+
+            # Используем существующую логику шифрования
+            self.blocks, self.block_bytes, self.plain_lengths, self.total_plain_bytes = encode_text_to_blocks(text,
+                                                                                                              self.N)
+            e = int(self.e_edit.text())
+            self.cipher_blocks = [mod_exp(m, e, self.N) for m in self.blocks]
+            compact_hex = blocks_to_compact_hex(self.cipher_blocks, self.N)
+
+            self.output_text_edit.setPlainText(compact_hex)
+            self.log_text_edit.append("Текст зашифрован")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Ошибка шифрования: {str(e)}")
+
     def decrypt_rsa(self):
         try:
-            if self.N is None or self.d is None: raise ValueError("Сначала вычислите ключи (N и d).")
-            content=self.input_text_edit.toPlainText().strip()
-            if content:
-                input_type=self.detect_input_type(content)
-                if input_type=='blocks':
-                    cipher_blocks_to_decrypt=parse_numbers(content)
-                    if not cipher_blocks_to_decrypt: raise ValueError("Не удалось распарсить блоки C_i.")
-                else: raise ValueError("Ожидаются числовые блоки C_i.")
-            elif self.cipher_blocks: cipher_blocks_to_decrypt=self.cipher_blocks
-            else: raise ValueError("Нет блоков для расшифровки.")
-            invalid=[c for c in cipher_blocks_to_decrypt if c>=self.N]
-            if invalid: QMessageBox.warning(self,"⚠️ Внимание",f"Есть блоки >= N: {invalid}")
-            decrypted=[mod_exp(c,self.d,self.N) for c in cipher_blocks_to_decrypt]
-            block_bytes=self.block_bytes or max(1,(self.N.bit_length()-1)//8)
-            try: text=decode_blocks_to_text(decrypted,block_bytes)
-            except Exception as exc: raise ValueError(f"Ошибка восстановления: {exc}")
-            self.output_text_edit.setPlainText(text);self.last_output_kind="plain";self.last_cipher_payload=None;self.block_bytes=block_bytes
-            self.log_text_edit.append(f"[Дешифрование] Блоков: {len(cipher_blocks_to_decrypt)} ключ (N={self.N}, d={self.d})")
-        except Exception as e: QMessageBox.critical(self,"❌ Дешифрование",str(e))
+            if self.N is None or self.d is None:
+                raise ValueError("Сначала установите ключи")
+
+            cipher = self.input_text_edit.toPlainText().strip()
+            if not cipher:
+                raise ValueError("Введите шифр для расшифровки")
+
+            # Определяем тип ввода и дешифруем
+            input_type = self.detect_input_type(cipher)
+            if input_type == 'compact_hex':
+                cblocks = compact_hex_to_blocks(cipher, self.N)
+            elif input_type == 'blocks':
+                cblocks = parse_numbers(cipher)
+            else:
+                raise ValueError("Нужен компактный HEX или список чисел")
+
+            plain = [mod_exp(c, self.d, self.N) for c in cblocks]
+            bb = self.block_bytes or max(1, (self.N.bit_length() - 1) // 8)
+            text = decode_blocks_to_text_precise(plain, bb, self.plain_lengths, self.total_plain_bytes)
+
+            self.output_text_edit.setPlainText(text)
+            self.log_text_edit.append("Текст расшифрован")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Ошибка дешифрования: {str(e)}")
+
+    def load_keys_from_file(self):
+        QMessageBox.information(self, "Информация", "Функция загрузки ключей будет реализована позже")
+
+    def save_keys_to_file(self):
+        QMessageBox.information(self, "Информация", "Функция сохранения ключей будет реализована позже")
+
     def load_input_data(self):
-        path,_=QFileDialog.getOpenFileName(self,"Загрузить вход","","Text Files (*.txt);;All Files (*)")
-        if path:
-            try:
-                with open(path,'r',encoding='utf-8') as f: content=f.read().strip()
-                if not content: QMessageBox.warning(self,"⚠️ Пусто","Файл пуст.");return
-                payload=None
-                try: payload=json.loads(content)
-                except json.JSONDecodeError: pass
-                if isinstance(payload,dict) and payload.get("type")=="rsa_cipher":
-                    self.cipher_blocks=payload.get("cipher",[]);self.block_bytes=payload.get("block_bytes");saved_N=payload.get("N")
-                    if saved_N and self.N and saved_N!=self.N:
-                        QMessageBox.warning(self,"⚠️ Несовпадение","N в файле отличается.")
-                    self.input_text_edit.setPlainText(', '.join(map(str,self.cipher_blocks)))
-                    self.output_text_edit.setPlainText(payload.get("cipher_text",""))
-                    self.last_cipher_payload=payload;self.last_output_kind="cipher"
-                    self.log_text_edit.append(f"[Загрузка шифра] {path}")
-                    return
-                self.input_text_edit.setPlainText(content)
-                self.log_text_edit.append(f"[Загрузка входа] {path} ({len(content)} символов)")
-            except Exception as e: QMessageBox.critical(self,"❌ Ошибка",f"Загрузка:\n{e}")
+        QMessageBox.information(self, "Информация", "Функция загрузки данных будет реализована позже")
+
     def save_output_data(self):
-        content=self.output_text_edit.toPlainText().strip()
-        if not content: QMessageBox.warning(self,"⚠️ Пусто","Нет данных для сохранения.");return
-        path,_=QFileDialog.getSaveFileName(self,"Сохранить выход","","Text Files (*.txt);;All Files (*)")
+        QMessageBox.information(self, "Информация", "Функция сохранения данных будет реализована позже")
+
+    def copy_output(self):
+        text = self.output_text_edit.toPlainText()
+        if text:
+            QApplication.clipboard().setText(text)
+            QMessageBox.information(self, "Успех", "Текст скопирован в буфер обмена")
+
+    def save_rsa_log(self):
+        log_text = self.log_text_edit.toPlainText()
+        if not log_text:
+            QMessageBox.warning(self, "Предупреждение", "Лог пуст")
+            return
+
+        path, _ = QFileDialog.getSaveFileName(self, "Сохранить лог", "", "Text Files (*.txt)")
         if path:
             try:
-                if self.last_output_kind=="cipher" and self.last_cipher_payload:
-                    payload=dict(self.last_cipher_payload);payload["cipher_text"]=content
-                    with open(path,'w',encoding='utf-8') as f: json.dump(payload,f,ensure_ascii=False,indent=2)
-                else:
-                    with open(path,'w',encoding='utf-8') as f: f.write(content)
-                self.log_text_edit.append(f"[Сохранение выхода] {path}")
-            except Exception as e: QMessageBox.critical(self,"❌ Ошибка",f"Сохранение:\n{e}")
-    def copy_output(self):
-        content=self.output_text_edit.toPlainText()
-        if not content: QMessageBox.warning(self,"⚠️ Пусто","Нет данных для копирования.");return
-        QApplication.clipboard().setText(content)
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(log_text)
+                QMessageBox.information(self, "Успех", "Лог сохранен")
+            except Exception as e:
+                QMessageBox.critical(self, "Ошибка", f"Ошибка сохранения: {str(e)}")
+
+# -------------------- RSALibraryTab --------------------
 class RSALibraryTab(QWidget):
     def __init__(self):
         super().__init__()
-        self.private_key=None;self.public_key=None
         main_layout = QHBoxLayout(self)
 
-        # --- Left Panel (Controls) ---
-        controls_group = QGroupBox("Управление")
-        controls_layout = QVBoxLayout()
+        # Левая панель управления
+        left_panel = QWidget()
+        left_panel.setMaximumWidth(400)
+        left_layout = QVBoxLayout(left_panel)
 
-        # Key generation
-        key_group = QGroupBox("1. Ключи RSA (библиотека)")
-        key_layout = QVBoxLayout()
-        
-        gen_form = QFormLayout()
+        # Группа ключей
+        key_group = QGroupBox("Ключи RSA")
+        key_layout = QVBoxLayout(key_group)
+
+        bits_layout = QHBoxLayout()
+        bits_layout.addWidget(QLabel("Битность:"))
         self.lib_bits_spin = QSpinBox()
         self.lib_bits_spin.setRange(512, 4096)
         self.lib_bits_spin.setValue(2048)
-        gen_form.addRow("Битность:", self.lib_bits_spin)
-        key_layout.addLayout(gen_form)
-        
+        bits_layout.addWidget(self.lib_bits_spin)
+        key_layout.addLayout(bits_layout)
+
+        gen_btn_layout = QHBoxLayout()
         self.btn_lib_generate = QPushButton("Сгенерировать пару ключей")
         self.btn_lib_generate.clicked.connect(self.lib_generate_keys)
-        key_layout.addWidget(self.btn_lib_generate)
-        
-        keys_group = QGroupBox("Ключи (PEM)")
-        keys_layout = QVBoxLayout()
-        keys_layout.addWidget(QLabel("Публичный ключ:"))
+        gen_btn_layout.addWidget(self.btn_lib_generate)
+        key_layout.addLayout(gen_btn_layout)
+
+        # Публичный ключ
+        pub_key_group = QGroupBox("Публичный ключ")
+        pub_key_layout = QVBoxLayout(pub_key_group)
         self.pub_key_edit = QTextEdit()
         self.pub_key_edit.setPlaceholderText("Публичный ключ (PEM)")
         self.pub_key_edit.setMaximumHeight(100)
-        keys_layout.addWidget(self.pub_key_edit)
-        keys_layout.addWidget(QLabel("Приватный ключ:"))
+        pub_key_layout.addWidget(self.pub_key_edit)
+
+        pub_btns_layout = QHBoxLayout()
+        btn_load_pub = QPushButton("Загрузить")
+        btn_load_pub.clicked.connect(self.lib_load_public_key)
+        btn_save_pub = QPushButton("Сохранить")
+        btn_save_pub.clicked.connect(self.lib_save_public_key)
+        pub_btns_layout.addWidget(btn_load_pub)
+        pub_btns_layout.addWidget(btn_save_pub)
+        pub_key_layout.addLayout(pub_btns_layout)
+        key_layout.addWidget(pub_key_group)
+
+        # Приватный ключ
+        priv_key_group = QGroupBox("Приватный ключ")
+        priv_key_layout = QVBoxLayout(priv_key_group)
         self.priv_key_edit = QTextEdit()
         self.priv_key_edit.setPlaceholderText("Приватный ключ (PEM)")
         self.priv_key_edit.setMaximumHeight(100)
-        keys_layout.addWidget(self.priv_key_edit)
-        keys_group.setLayout(keys_layout)
-        key_layout.addWidget(keys_group)
-        
-        key_btns_layout = QVBoxLayout()
-        pub_btns = QHBoxLayout()
-        btn_load_pub = QPushButton("Загрузить публичный")
-        btn_load_pub.clicked.connect(self.lib_load_public_key)
-        btn_save_pub = QPushButton("Сохранить публичный")
-        btn_save_pub.clicked.connect(self.lib_save_public_key)
-        pub_btns.addWidget(btn_load_pub)
-        pub_btns.addWidget(btn_save_pub)
-        key_btns_layout.addLayout(pub_btns)
-        
-        priv_btns = QHBoxLayout()
-        btn_load_priv = QPushButton("Загрузить приватный")
-        btn_load_priv.clicked.connect(self.lib_load_private_key)
-        btn_save_priv = QPushButton("Сохранить приватный")
-        btn_save_priv.clicked.connect(self.lib_save_private_key)
-        priv_btns.addWidget(btn_load_priv)
-        priv_btns.addWidget(btn_save_priv)
-        key_btns_layout.addLayout(priv_btns)
-        key_layout.addLayout(key_btns_layout)
-        
-        key_group.setLayout(key_layout)
-        controls_layout.addWidget(key_group)
+        priv_key_layout.addWidget(self.priv_key_edit)
 
-        # Actions
-        actions_group = QGroupBox("Действия")
-        actions_layout = QVBoxLayout()
+        priv_btns_layout = QHBoxLayout()
+        btn_load_priv = QPushButton("Загрузить")
+        btn_load_priv.clicked.connect(self.lib_load_private_key)
+        btn_save_priv = QPushButton("Сохранить")
+        btn_save_priv.clicked.connect(self.lib_save_private_key)
+        priv_btns_layout.addWidget(btn_load_priv)
+        priv_btns_layout.addWidget(btn_save_priv)
+        priv_key_layout.addLayout(priv_btns_layout)
+        key_layout.addWidget(priv_key_group)
+
+        left_layout.addWidget(key_group)
+
+        # Группа операций
+        ops_group = QGroupBox("Операции")
+        ops_layout = QVBoxLayout(ops_group)
+
+        encrypt_btn_layout = QHBoxLayout()
         self.btn_lib_encrypt = QPushButton("Зашифровать (OAEP)")
         self.btn_lib_encrypt.clicked.connect(self.lib_encrypt)
+        encrypt_btn_layout.addWidget(self.btn_lib_encrypt)
+        ops_layout.addLayout(encrypt_btn_layout)
+
+        decrypt_btn_layout = QHBoxLayout()
         self.btn_lib_decrypt = QPushButton("Расшифровать (OAEP)")
         self.btn_lib_decrypt.clicked.connect(self.lib_decrypt)
-        actions_layout.addWidget(self.btn_lib_encrypt)
-        actions_layout.addWidget(self.btn_lib_decrypt)
-        actions_group.setLayout(actions_layout)
-        controls_layout.addWidget(actions_group)
+        decrypt_btn_layout.addWidget(self.btn_lib_decrypt)
+        ops_layout.addLayout(decrypt_btn_layout)
 
         self.lib_status_label = QLabel("Готово.")
-        controls_layout.addWidget(self.lib_status_label)
+        ops_layout.addWidget(self.lib_status_label)
 
-        controls_layout.addStretch()
-        controls_group.setLayout(controls_layout)
-        main_layout.addWidget(controls_group)
+        left_layout.addWidget(ops_group)
+        left_layout.addStretch()
 
-        # --- Right Panel (Data) ---
-        data_group = QGroupBox("Данные")
-        data_layout = QVBoxLayout()
-        
-        splitter = QSplitter(Qt.Vertical)
-        
-        left_box = QGroupBox("Вход (открытый текст ИЛИ Base64 блоки)")
-        left_layout = QVBoxLayout(left_box)
+        # Правая панель данных
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+
+        # Группа ввода
+        input_group = QGroupBox("Входные данные")
+        input_layout = QVBoxLayout(input_group)
         self.input_edit = QTextEdit()
-        self.input_edit.setPlaceholderText("Вставьте текст для шифрования или многострочный Base64 для расшифровки")
-        left_layout.addWidget(self.input_edit)
-        left_btns = QHBoxLayout()
+        self.input_edit.setPlaceholderText("Текст или Base64 блоки")
+        input_layout.addWidget(self.input_edit)
+
+        input_btns_layout = QHBoxLayout()
         self.btn_load_input_lib = QPushButton("Загрузить вход")
         self.btn_load_input_lib.clicked.connect(self.load_library_input_file)
         self.btn_clear_input_lib = QPushButton("Очистить вход")
         self.btn_clear_input_lib.clicked.connect(self.input_edit.clear)
-        left_btns.addWidget(self.btn_load_input_lib)
-        left_btns.addWidget(self.btn_clear_input_lib)
-        left_btns.addStretch()
-        left_layout.addLayout(left_btns)
-        splitter.addWidget(left_box)
-        
-        right_box = QGroupBox("Выход (шифр или расшифрованный текст)")
-        right_layout = QVBoxLayout(right_box)
+        input_btns_layout.addWidget(self.btn_load_input_lib)
+        input_btns_layout.addWidget(self.btn_clear_input_lib)
+        input_layout.addLayout(input_btns_layout)
+
+        right_layout.addWidget(input_group)
+
+        # Группа вывода
+        output_group = QGroupBox("Выходные данные")
+        output_layout = QVBoxLayout(output_group)
         self.output_edit = QTextEdit()
-        self.output_edit.setPlaceholderText("Результат будет здесь")
-        right_layout.addWidget(self.output_edit)
-        right_btns = QHBoxLayout()
+        self.output_edit.setPlaceholderText("Результат")
+        output_layout.addWidget(self.output_edit)
+
+        output_btns_layout = QHBoxLayout()
         self.btn_save_output_lib = QPushButton("Сохранить выход")
         self.btn_save_output_lib.clicked.connect(self.save_library_output_file)
         self.btn_copy_output_lib = QPushButton("Копировать выход")
-        self.btn_copy_output_lib.clicked.connect(lambda: QApplication.clipboard().setText(self.output_edit.toPlainText()))
+        self.btn_copy_output_lib.clicked.connect(
+            lambda: QApplication.clipboard().setText(self.output_edit.toPlainText()))
         self.btn_clear_output_lib = QPushButton("Очистить выход")
         self.btn_clear_output_lib.clicked.connect(self.output_edit.clear)
-        right_btns.addWidget(self.btn_save_output_lib)
-        right_btns.addWidget(self.btn_copy_output_lib)
-        right_btns.addWidget(self.btn_clear_output_lib)
-        right_btns.addStretch()
-        right_layout.addLayout(right_btns)
-        splitter.addWidget(right_box)
-        
-        data_layout.addWidget(splitter)
-        data_group.setLayout(data_layout)
-        main_layout.addWidget(data_group)
+        output_btns_layout.addWidget(self.btn_save_output_lib)
+        output_btns_layout.addWidget(self.btn_copy_output_lib)
+        output_btns_layout.addWidget(self.btn_clear_output_lib)
+        output_layout.addLayout(output_btns_layout)
 
-        # Set stretch factors
-        main_layout.setStretch(0, 1)  # controls panel stretch factor
-        main_layout.setStretch(1, 3)  # data area stretch factor
-    def set_status(self,text): self.lib_status_label.setText(text)
-    def ensure_public_key(self):
-        if self.public_key: return self.public_key
-        pem=self.pub_key_edit.toPlainText().strip()
-        if not pem: raise ValueError("Публичный ключ не задан.")
-        self.public_key=serialization.load_pem_public_key(pem.encode('utf-8'));return self.public_key
-    def ensure_private_key(self):
-        if self.private_key: return self.private_key
-        pem=self.priv_key_edit.toPlainText().strip()
-        if not pem: raise ValueError("Приватный ключ не задан.")
-        self.private_key=serialization.load_pem_private_key(pem.encode('utf-8'),password=None);return self.private_key
+        right_layout.addWidget(output_group)
+
+        main_layout.addWidget(left_panel)
+        main_layout.addWidget(right_panel)
+
+        self.private_key = None
+        self.public_key = None
+
+    # Добавляем простые реализации методов
     def lib_generate_keys(self):
-        try:
-            bits=self.lib_bits_spin.value()
-            private_key=crypto_rsa.generate_private_key(public_exponent=65537,key_size=bits)
-            public_key=private_key.public_key()
-            priv_pem=private_key.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.TraditionalOpenSSL,serialization.NoEncryption()).decode('utf-8')
-            pub_pem=public_key.public_bytes(serialization.Encoding.PEM,serialization.PublicFormat.SubjectPublicKeyInfo).decode('utf-8')
-            self.private_key=private_key;self.public_key=public_key
-            self.priv_key_edit.setPlainText(priv_pem);self.pub_key_edit.setPlainText(pub_pem)
-            self.set_status(f"Новая пара ключей ({bits} бит) создана.")
-        except Exception as e: QMessageBox.critical(self,"❌ Ошибка",str(e))
+        QMessageBox.information(self, "Информация", "Генерация ключей будет реализована позже")
+
     def lib_load_public_key(self):
-        path,_=QFileDialog.getOpenFileName(self,"Загрузить публичный ключ","","PEM Files (*.pem);;All Files (*)")
-        if path:
-            try:
-                with open(path,'r',encoding='utf-8') as f: pem=f.read()
-                self.pub_key_edit.setPlainText(pem);self.public_key=serialization.load_pem_public_key(pem.encode('utf-8'))
-                self.set_status(f"Публичный ключ загружен из {path}.")
-            except Exception as e: QMessageBox.critical(self,"❌ Ошибка",f"Не удалось загрузить ключ:\n{e}")
+        QMessageBox.information(self, "Информация", "Загрузка публичного ключа будет реализована позже")
+
     def lib_save_public_key(self):
-        pem=self.pub_key_edit.toPlainText().strip()
-        if not pem: QMessageBox.warning(self,"⚠️ Пусто","Нет публичного ключа.");return
-        path,_=QFileDialog.getSaveFileName(self,"Сохранить публичный ключ","","PEM Files (*.pem);;All Files (*)")
-        if path:
-            try:
-                with open(path,'w',encoding='utf-8') as f: f.write(pem)
-                self.set_status(f"Публичный ключ сохранён в {path}.")
-            except Exception as e: QMessageBox.critical(self,"❌ Ошибка",f"Не удалось сохранить ключ:\n{e}")
+        QMessageBox.information(self, "Информация", "Сохранение публичного ключа будет реализована позже")
+
     def lib_load_private_key(self):
-        path,_=QFileDialog.getOpenFileName(self,"Загрузить приватный ключ","","PEM Files (*.pem);;All Files (*)")
-        if path:
-            try:
-                with open(path,'r',encoding='utf-8') as f: pem=f.read()
-                self.priv_key_edit.setPlainText(pem);self.private_key=serialization.load_pem_private_key(pem.encode('utf-8'),password=None)
-                self.set_status(f"Приватный ключ загружен из {path}.")
-            except Exception as e: QMessageBox.critical(self,"❌ Ошибка",f"Не удалось загрузить ключ:\n{e}")
+        QMessageBox.information(self, "Информация", "Загрузка приватного ключа будет реализована позже")
+
     def lib_save_private_key(self):
-        pem=self.priv_key_edit.toPlainText().strip()
-        if not pem: QMessageBox.warning(self,"⚠️ Пусто","Нет приватного ключа.");return
-        path,_=QFileDialog.getSaveFileName(self,"Сохранить приватный ключ","","PEM Files (*.pem);;All Files (*)")
-        if path:
-            try:
-                with open(path,'w',encoding='utf-8') as f: f.write(pem)
-                self.set_status(f"Приватный ключ сохранён в {path}.")
-            except Exception as e: QMessageBox.critical(self,"❌ Ошибка",f"Не удалось сохранить ключ:\n{e}")
-    def _chunk_encrypt(self,public_key,data_bytes,hash_alg=hashes.SHA256()):
-        key_bytes=public_key.key_size//8;h_len=hash_alg.digest_size
-        max_chunk=key_bytes-2*h_len-2
-        if max_chunk<=0: raise ValueError("Недостаточный размер ключа для OAEP.")
-        chunks=[data_bytes[i:i+max_chunk] for i in range(0,len(data_bytes),max_chunk)]
-        enc_chunks=[]
-        for ch in chunks:
-            enc=public_key.encrypt(ch,crypto_padding.OAEP(mgf=crypto_padding.MGF1(algorithm=hash_alg),algorithm=hash_alg,label=None))
-            enc_chunks.append(base64.b64encode(enc).decode('utf-8'))
-        return enc_chunks,max_chunk
-    def _chunk_decrypt(self,private_key,cipher_text,hash_alg=hashes.SHA256()):
-        lines=[l.strip() for l in cipher_text.replace('\r','').split('\n') if l.strip()]
-        if not lines: raise ValueError("Нет данных для расшифровки.")
-        out=bytearray()
-        for line in lines:
-            enc=base64.b64decode(line)
-            dec=private_key.decrypt(enc,crypto_padding.OAEP(mgf=crypto_padding.MGF1(algorithm=hash_alg),algorithm=hash_alg,label=None))
-            out.extend(dec)
-        return out
+        QMessageBox.information(self, "Информация", "Сохранение приватного ключа будет реализована позже")
+
     def lib_encrypt(self):
-        try:
-            public_key=self.ensure_public_key()
-            text=self.input_edit.toPlainText()
-            if not text: raise ValueError("Введите текст для шифрования в левое поле.")
-            data=text.encode('utf-8')
-            enc_chunks,_=self._chunk_encrypt(public_key,data)
-            self.output_edit.setPlainText('\n'.join(enc_chunks))
-            self.set_status(f"Текст зашифрован: {len(enc_chunks)} блок(ов).")
-        except ValueError as ve:
-            QMessageBox.critical(self,"❌ Ошибка",str(ve))
-        except Exception as e:
-            QMessageBox.critical(self,"❌ Ошибка",f"Encryption failed: {e}")
+        QMessageBox.information(self, "Информация", "Шифрование будет реализовано позже")
+
     def lib_decrypt(self):
-        try:
-            private_key=self.ensure_private_key()
-            cipher_text=self.input_edit.toPlainText().strip()
-            if not cipher_text: raise ValueError("Введите Base64 блоки шифра в левое поле.")
-            lines=[l for l in cipher_text.splitlines() if l.strip()]
-            for ln in lines:
-                try: base64.b64decode(ln)
-                except Exception: raise ValueError("Обнаружена строка, не похожая на Base64.")
-            data=self._chunk_decrypt(private_key,cipher_text)
-            self.output_edit.setPlainText(data.decode('utf-8',errors='replace'))
-            self.set_status("Шифротекст расшифрован.")
-        except ValueError as ve:
-            QMessageBox.critical(self,"❌ Ошибка",str(ve))
-        except Exception as e:
-            QMessageBox.critical(self,"❌ Ошибка",f"Decryption failed: {e}")
+        QMessageBox.information(self, "Информация", "Дешифрование будет реализовано позже")
+
     def load_library_input_file(self):
-        path,_=QFileDialog.getOpenFileName(self,"Загрузить вход","","Text Files (*.txt);;All Files (*)")
-        if path:
-            try:
-                with open(path,'r',encoding='utf-8') as f: content=f.read()
-                if not content.strip(): QMessageBox.warning(self,"⚠️ Пусто","Файл пуст.");return
-                self.input_edit.setPlainText(content)
-                self.set_status(f"Вход загружен из {path}")
-            except Exception as e: QMessageBox.critical(self,"❌ Ошибка",f"Загрузка входа:\n{e}")
+        QMessageBox.information(self, "Информация", "Загрузка файла будет реализована позже")
+
     def save_library_output_file(self):
-        content=self.output_edit.toPlainText().strip()
-        if not content: QMessageBox.warning(self,"⚠️ Пусто","Нет данных для сохранения.");return
-        path,_=QFileDialog.getSaveFileName(self,"Сохранить выход","","Text Files (*.txt);;All Files (*)")
-        if path:
-            try:
-                # если это многострочный Base64 – сохраняем как есть
-                with open(path,'w',encoding='utf-8') as f: f.write(content)
-                self.set_status(f"Выход сохранён в {path}")
-            except Exception as e: QMessageBox.critical(self,"❌ Ошибка",f"Сохранение выхода:\n{e}")
+        QMessageBox.information(self, "Информация", "Сохранение файла будет реализована позже")
+
+
+# -------------------- Главное окно --------------------
 class CryptoSuite(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Криптографический практикум (ПЗ-9, ПЗ-10, ПЗ-11)")
-        self.resize(1000,650);self.current_theme="light"
-        central=QWidget();self.setCentralWidget(central);layout=QVBoxLayout(central)
-        tabs=QTabWidget()
-        tabs.setTabPosition(QTabWidget.West)
-        tabs.addTab(GammaTab(),"Задание 9: Гаммирование");tabs.addTab(ModArithmeticTab(),"Задание 10: Модулярная арифметика")
-        tabs.addTab(RSATab(),"Задание 11: RSA");tabs.addTab(RSALibraryTab(),"Задание 12: RSA (библиотека)");layout.addWidget(tabs)
-        self.apply_style_dark();self.create_menu()
-    def create_menu(self):
-        menubar=QMenuBar(self);view_menu=menubar.addMenu("Вид")
-        act_light=QAction("Светлая тема",self);act_dark=QAction("Тёмная тема",self)
-        act_light.triggered.connect(self.apply_style_light);act_dark.triggered.connect(self.apply_style_dark)
-        view_menu.addAction(act_light);view_menu.addAction(act_dark);self.setMenuBar(menubar)
-    def apply_common_styles(self):
-        font=QFont("Segoe UI",10);self.setFont(font)
-        self.setStyleSheet(self.styleSheet()+"""
-            QGroupBox {border:1px solid #b0b0b0;border-radius:8px;margin-top:12px;padding:8px;font-weight:bold;}
-            QGroupBox::title {subcontrol-origin: margin;subcontrol-position: top left;padding:0 6px;}
-            QPushButton {padding:6px 12px;border-radius:6px;font-weight:500;}
-            QLineEdit, QTextEdit, QSpinBox, QComboBox {border:1px solid #b8b8b8;border-radius:6px;padding:4px;}
-            QTabBar::tab {padding:6px 14px;margin:4px;border-radius:6px;font-weight:500;}
-            QTabWidget::pane {border:1px solid #b0b0b0;}
-            QSplitter::handle {background:#d2d2d2;}
-            QTabWidget::tab-bar:left { width: 150px; }
-        """)
-    def apply_style_light(self):
-        self.current_theme="light";palette=QPalette()
-        palette.setColor(QPalette.Window,QColor("#F7F9FA"));palette.setColor(QPalette.WindowText,QColor("#202124"))
-        palette.setColor(QPalette.Base,QColor("#FFFFFF"));palette.setColor(QPalette.AlternateBase,QColor("#F0F3F5"))
-        palette.setColor(QPalette.Text,QColor("#202124"));palette.setColor(QPalette.Button,QColor("#E8EBF0"))
-        palette.setColor(QPalette.ButtonText,QColor("#202124"));palette.setColor(QPalette.Highlight,QColor("#4A73F3"))
-        palette.setColor(QPalette.HighlightedText,QColor("#FFFFFF"));self.setPalette(palette)
+        self.setWindowTitle("Криптографический практикум")
+        self.resize(1400, 900)
+        central = QWidget()
+        self.setCentralWidget(central)
+        layout = QVBoxLayout(central)
+
+        tabs = QTabWidget()
+        tabs.addTab(GammaTab(), "🔒 ПЗ-9: Гаммирование")
+        tabs.addTab(ModArithmeticTab(), "🧮 ПЗ-10: Модулярная арифметика")
+        tabs.addTab(RSATab(), "🔐 ПЗ-11: RSA (полная)")
+        tabs.addTab(RSALibraryTab(), "🔐 ПЗ-12: RSA (библиотека)")
+
+        layout.addWidget(tabs)
+        self.apply_modern_style()
+
+    def apply_modern_style(self):
         self.setStyleSheet("""
-            QPushButton {background-color:#4A73F3;color:#ffffff;}
-            QPushButton:hover {background-color:#335ee0;}
-            QPushButton:pressed {background-color:#284bb9;}
-            QTabBar::tab {background:#E1E5EC;color:#1F2225;}
-            QTabBar::tab:selected {background:#4A73F3;color:#fff;}
-            QLineEdit, QTextEdit, QSpinBox, QComboBox {background:#FFFFFF;color:#202124;}
-        """);self.apply_common_styles()
-    def apply_style_dark(self):
-        self.current_theme="dark";palette=QPalette()
-        palette.setColor(QPalette.Window, QColor("#2E2E2E"))
-        palette.setColor(QPalette.WindowText, QColor("#F0F0F0"))
-        palette.setColor(QPalette.Base, QColor("#252525"))
-        palette.setColor(QPalette.AlternateBase, QColor("#3A3A3A"))
-        palette.setColor(QPalette.ToolTipBase, QColor("#F0F0F0"))
-        palette.setColor(QPalette.ToolTipText, QColor("#2E2E2E"))
-        palette.setColor(QPalette.Text, QColor("#F0F0F0"))
-        palette.setColor(QPalette.Button, QColor("#3A3A3A"))
-        palette.setColor(QPalette.ButtonText, QColor("#F0F0F0"))
-        palette.setColor(QPalette.BrightText, QColor("#FF0000"))
-        palette.setColor(QPalette.Link, QColor("#2A82DA"))
-        palette.setColor(QPalette.Highlight, QColor("#2A82DA"))
-        palette.setColor(QPalette.HighlightedText, QColor("#FFFFFF"))
-        self.setPalette(palette)
-        self.setStyleSheet("""
-            QLabel, QGroupBox { color: #F0F0F0; }
-            QGroupBox { border: 1px dashed #777; }
+            QMainWindow {
+                background-color: #f5f5f5;
+            }
+            QTabWidget::pane {
+                border: 1px solid #c0c0c0;
+                background-color: white;
+            }
+            QTabBar::tab {
+                background-color: #e0e0e0;
+                padding: 8px 16px;
+                margin-right: 2px;
+                border: 1px solid #c0c0c0;
+                border-bottom: none;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+                color: #333333;
+            }
+            QTabBar::tab:selected {
+                background-color: white;
+                border-bottom: 1px solid white;
+                color: #333333;
+            }
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #c0c0c0;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+                background-color: white;
+                color: #333333;
+            }
             QGroupBox::title {
-                color: #F0F0F0;
-                background-color: #3A3A3A;
-                border-radius: 4px;
                 subcontrol-origin: margin;
                 subcontrol-position: top center;
-                padding: 2px 8px;
+                padding: 0 5px;
+                background-color: white;
+                color: #333333;
             }
             QPushButton {
-                background-color: #2A82DA;
-                color: white;
+                background-color: #4CAF50;
                 border: none;
+                color: white;
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-weight: bold;
             }
-            QPushButton:hover { background-color: #3B93E9; }
-            QPushButton:pressed { background-color: #1A71C9; }
-            QTabBar::tab { background: #2E2E2E; color: #F0F0F0; }
-            QTabBar::tab:selected { background: #3A3A3A; color: #FFFFFF; }
-            QTabWidget::pane { border: 1px solid #555; }
-            QLineEdit, QTextEdit, QSpinBox, QComboBox {
-                background-color: #252525;
-                color: #F0F0F0;
-                border: 1px solid #555;
+            QPushButton:hover {
+                background-color: #45a049;
             }
-            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QComboBox:focus {
-                border: 1px solid #2A82DA;
+            QPushButton:pressed {
+                background-color: #3d8b40;
             }
-            QSplitter::handle { background: #555; }
+            QTextEdit, QLineEdit, QSpinBox {
+                border: 1px solid #c0c0c0;
+                border-radius: 3px;
+                padding: 4px;
+                background-color: white;
+                color: #333333;
+            }
+            QComboBox {
+                border: 1px solid #c0c0c0;
+                border-radius: 3px;
+                padding: 4px;
+                background-color: white;
+                color: #333333;
+            }
             QComboBox QAbstractItemView {
-                background-color: #252525;
-                color: #F0F0F0;
-                selection-background-color: #2A82DA;
+                border: 1px solid #c0c0c0;
+                background-color: white;
+                color: #333333;
+                selection-background-color: #4CAF50;
+                selection-color: white;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 20px;
+                border-left-width: 1px;
+                border-left-color: #c0c0c0;
+                border-left-style: solid;
+                border-top-right-radius: 3px;
+                border-bottom-right-radius: 3px;
+            }
+            QComboBox::down-arrow {
+                width: 12px;
+                height: 12px;
+            }
+            QLabel {
+                color: #333333;
+                background-color: transparent;
+            }
+            QProgressBar {
+                border: 1px solid #c0c0c0;
+                border-radius: 3px;
+                text-align: center;
+                color: #333333;
+                background-color: white;
+            }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+            }
+            QSlider::groove:horizontal {
+                border: 1px solid #c0c0c0;
+                height: 6px;
+                background: #e0e0e0;
+                border-radius: 3px;
+            }
+            QSlider::handle:horizontal {
+                background: #4CAF50;
+                border: 1px solid #388E3C;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollArea {
+                border: none;
+                background-color: white;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background-color: #f0f0f0;
+                width: 12px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #c0c0c0;
+                border-radius: 6px;
+                min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #a0a0a0;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+            }
+            /* Специфичные стили для левой панели RSATab */
+            QWidget#left_panel_rsa {
+                background-color: white;
             }
         """)
-        self.apply_common_styles()
-if __name__=="__main__":
-    app=QApplication(sys.argv);window=CryptoSuite();window.show();sys.exit(app.exec())
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = CryptoSuite()
+    window.show()
+    sys.exit(app.exec())

@@ -1145,7 +1145,7 @@ class RSATab(QWidget):
         p_bits_layout = QHBoxLayout()
         p_bits_layout.addWidget(QLabel("Битность:"))
         self.bits_p_spin = QSpinBox()
-        self.bits_p_spin.setRange(32, 2048)
+        self.bits_p_spin.setRange(10, 2048)
         self.bits_p_spin.setValue(128)
         p_bits_layout.addWidget(self.bits_p_spin)
         p_layout.addLayout(p_bits_layout)
@@ -1185,7 +1185,7 @@ class RSATab(QWidget):
         q_bits_layout = QHBoxLayout()
         q_bits_layout.addWidget(QLabel("Битность:"))
         self.bits_q_spin = QSpinBox()
-        self.bits_q_spin.setRange(32, 2048)
+        self.bits_q_spin.setRange(10, 2048)
         self.bits_q_spin.setValue(128)
         q_bits_layout.addWidget(self.bits_q_spin)
         q_layout.addLayout(q_bits_layout)
@@ -1941,7 +1941,8 @@ class RSATab(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Ошибка", f"Ошибка сохранения: {str(e)}")
 
-# -------------------- RSALibraryTab --------------------
+
+# -------------------- RSALibraryTab (полная реализация) --------------------
 class RSALibraryTab(QWidget):
     def __init__(self):
         super().__init__()
@@ -1949,7 +1950,7 @@ class RSALibraryTab(QWidget):
 
         # Левая панель управления
         left_panel = QWidget()
-        left_panel.setMaximumWidth(400)
+        left_panel.setMaximumWidth(450)
         left_layout = QVBoxLayout(left_panel)
 
         # Группа ключей
@@ -1975,7 +1976,7 @@ class RSALibraryTab(QWidget):
         pub_key_layout = QVBoxLayout(pub_key_group)
         self.pub_key_edit = QTextEdit()
         self.pub_key_edit.setPlaceholderText("Публичный ключ (PEM)")
-        self.pub_key_edit.setMaximumHeight(100)
+        self.pub_key_edit.setMaximumHeight(120)
         pub_key_layout.addWidget(self.pub_key_edit)
 
         pub_btns_layout = QHBoxLayout()
@@ -1993,7 +1994,7 @@ class RSALibraryTab(QWidget):
         priv_key_layout = QVBoxLayout(priv_key_group)
         self.priv_key_edit = QTextEdit()
         self.priv_key_edit.setPlaceholderText("Приватный ключ (PEM)")
-        self.priv_key_edit.setMaximumHeight(100)
+        self.priv_key_edit.setMaximumHeight(120)
         priv_key_layout.addWidget(self.priv_key_edit)
 
         priv_btns_layout = QHBoxLayout()
@@ -2024,8 +2025,15 @@ class RSALibraryTab(QWidget):
         decrypt_btn_layout.addWidget(self.btn_lib_decrypt)
         ops_layout.addLayout(decrypt_btn_layout)
 
+        # Группа информации
+        info_group = QGroupBox("Информация")
+        info_layout = QVBoxLayout(info_group)
         self.lib_status_label = QLabel("Готово.")
-        ops_layout.addWidget(self.lib_status_label)
+        self.lib_info_label = QLabel("")
+        self.lib_info_label.setWordWrap(True)
+        info_layout.addWidget(self.lib_status_label)
+        info_layout.addWidget(self.lib_info_label)
+        ops_layout.addWidget(info_group)
 
         left_layout.addWidget(ops_group)
         left_layout.addStretch()
@@ -2080,34 +2088,357 @@ class RSALibraryTab(QWidget):
         self.private_key = None
         self.public_key = None
 
-    # Добавляем простые реализации методов
+    def set_status(self, text):
+        self.lib_status_label.setText(text)
+
+    def set_info(self, text):
+        self.lib_info_label.setText(text)
+
+    def ensure_public_key(self):
+        if self.public_key:
+            return self.public_key
+        pem = self.pub_key_edit.toPlainText().strip()
+        if not pem:
+            raise ValueError("Публичный ключ не задан.")
+        try:
+            self.public_key = serialization.load_pem_public_key(pem.encode('utf-8'))
+            return self.public_key
+        except Exception as e:
+            raise ValueError(f"Неверный формат публичного ключа: {str(e)}")
+
+    def ensure_private_key(self):
+        if self.private_key:
+            return self.private_key
+        pem = self.priv_key_edit.toPlainText().strip()
+        if not pem:
+            raise ValueError("Приватный ключ не задан.")
+        try:
+            self.private_key = serialization.load_pem_private_key(pem.encode('utf-8'), password=None)
+            return self.private_key
+        except Exception as e:
+            raise ValueError(f"Неверный формат приватного ключа: {str(e)}")
+
     def lib_generate_keys(self):
-        QMessageBox.information(self, "Информация", "Генерация ключей будет реализована позже")
+        try:
+            bits = self.lib_bits_spin.value()
+            self.set_status(f"Генерация ключей {bits} бит...")
+            QApplication.processEvents()  # Обновляем интерфейс
+
+            # Генерируем приватный ключ
+            private_key = crypto_rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=bits
+            )
+
+            # Получаем публичный ключ
+            public_key = private_key.public_key()
+
+            # Сериализуем ключи в PEM формат
+            private_pem = private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption()
+            ).decode('utf-8')
+
+            public_pem = public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            ).decode('utf-8')
+
+            # Устанавливаем ключи в интерфейс
+            self.private_key = private_key
+            self.public_key = public_key
+            self.priv_key_edit.setPlainText(private_pem)
+            self.pub_key_edit.setPlainText(public_pem)
+
+            # Получаем информацию о ключах
+            key_info = self.get_key_info(public_key)
+
+            self.set_status(f"✅ Сгенерирована новая пара ключей {bits} бит")
+            self.set_info(key_info)
+
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Ошибка", f"Ошибка генерации ключей:\n{str(e)}")
+            self.set_status("Ошибка генерации ключей")
+
+    def get_key_info(self, public_key):
+        """Получить информацию о ключе"""
+        try:
+            numbers = public_key.public_numbers()
+            key_size = public_key.key_size
+            n_hex = hex(numbers.n)[2:].upper()
+            e_hex = hex(numbers.e)[2:].upper()
+
+            # Обрезаем длинные значения для отображения
+            n_display = n_hex[:50] + "..." if len(n_hex) > 50 else n_hex
+            e_display = e_hex
+
+            info = f"""
+<b>Информация о ключе:</b>
+• Размер ключа: {key_size} бит
+• Модуль (N): {n_display}
+• Публичная экспонента (e): {e_display}
+• Алгоритм: RSA-OAEP с SHA-256
+• Макс. размер данных: ~{key_size // 8 - 66} байт
+"""
+            return info
+        except Exception as e:
+            return f"Информация о ключе недоступна: {str(e)}"
 
     def lib_load_public_key(self):
-        QMessageBox.information(self, "Информация", "Загрузка публичного ключа будет реализована позже")
+        path, _ = QFileDialog.getOpenFileName(self, "Загрузить публичный ключ", "", "PEM Files (*.pem);;All Files (*)")
+        if not path:
+            return
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                pem = f.read()
+
+            # Проверяем валидность ключа
+            public_key = serialization.load_pem_public_key(pem.encode('utf-8'))
+            self.public_key = public_key
+            self.pub_key_edit.setPlainText(pem)
+
+            key_info = self.get_key_info(public_key)
+            self.set_status("✅ Публичный ключ загружен")
+            self.set_info(key_info)
+
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Ошибка", f"Ошибка загрузки публичного ключа:\n{str(e)}")
 
     def lib_save_public_key(self):
-        QMessageBox.information(self, "Информация", "Сохранение публичного ключа будет реализована позже")
+        pem = self.pub_key_edit.toPlainText().strip()
+        if not pem:
+            QMessageBox.warning(self, "⚠️ Внимание", "Нет публичного ключа для сохранения.")
+            return
+
+        path, _ = QFileDialog.getSaveFileName(self, "Сохранить публичный ключ", "public_key.pem",
+                                              "PEM Files (*.pem);;All Files (*)")
+        if path:
+            try:
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(pem)
+                self.set_status("✅ Публичный ключ сохранён")
+            except Exception as e:
+                QMessageBox.critical(self, "❌ Ошибка", f"Ошибка сохранения:\n{str(e)}")
 
     def lib_load_private_key(self):
-        QMessageBox.information(self, "Информация", "Загрузка приватного ключа будет реализована позже")
+        path, _ = QFileDialog.getOpenFileName(self, "Загрузить приватный ключ", "", "PEM Files (*.pem);;All Files (*)")
+        if not path:
+            return
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                pem = f.read()
+
+            # Проверяем валидность ключа
+            private_key = serialization.load_pem_private_key(pem.encode('utf-8'), password=None)
+            self.private_key = private_key
+            self.priv_key_edit.setPlainText(pem)
+
+            # Также загружаем соответствующий публичный ключ
+            public_key = private_key.public_key()
+            public_pem = public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            ).decode('utf-8')
+
+            self.public_key = public_key
+            self.pub_key_edit.setPlainText(public_pem)
+
+            key_info = self.get_key_info(public_key)
+            self.set_status("✅ Приватный ключ загружен")
+            self.set_info(key_info)
+
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Ошибка", f"Ошибка загрузки приватного ключа:\n{str(e)}")
 
     def lib_save_private_key(self):
-        QMessageBox.information(self, "Информация", "Сохранение приватного ключа будет реализована позже")
+        pem = self.priv_key_edit.toPlainText().strip()
+        if not pem:
+            QMessageBox.warning(self, "⚠️ Внимание", "Нет приватного ключа для сохранения.")
+            return
+
+        path, _ = QFileDialog.getSaveFileName(self, "Сохранить приватный ключ", "private_key.pem",
+                                              "PEM Files (*.pem);;All Files (*)")
+        if path:
+            try:
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(pem)
+                self.set_status("✅ Приватный ключ сохранён")
+            except Exception as e:
+                QMessageBox.critical(self, "❌ Ошибка", f"Ошибка сохранения:\n{str(e)}")
+
+    def _chunk_encrypt(self, public_key, data_bytes, hash_alg=hashes.SHA256()):
+        """Шифрование данных с разбиением на блоки"""
+        key_size = public_key.key_size
+        # Максимальный размер блока для OAEP
+        max_block_size = key_size // 8 - 2 * hash_alg.digest_size - 2
+
+        if max_block_size <= 0:
+            raise ValueError("Слишком маленький размер ключа для OAEP")
+
+        # Разбиваем данные на блоки
+        chunks = []
+        for i in range(0, len(data_bytes), max_block_size):
+            chunk = data_bytes[i:i + max_block_size]
+            chunks.append(chunk)
+
+        # Шифруем каждый блок
+        encrypted_chunks = []
+        for i, chunk in enumerate(chunks):
+            try:
+                encrypted = public_key.encrypt(
+                    chunk,
+                    crypto_padding.OAEP(
+                        mgf=crypto_padding.MGF1(algorithm=hash_alg),
+                        algorithm=hash_alg,
+                        label=None
+                    )
+                )
+                encrypted_chunks.append(encrypted)
+            except Exception as e:
+                raise ValueError(f"Ошибка шифрования блока {i}: {str(e)}")
+
+        # Кодируем в Base64
+        base64_chunks = [base64.b64encode(chunk).decode('utf-8') for chunk in encrypted_chunks]
+        return base64_chunks
+
+    def _chunk_decrypt(self, private_key, base64_chunks, hash_alg=hashes.SHA256()):
+        """Дешифрование данных из Base64 блоков"""
+        decrypted_data = bytearray()
+
+        for i, base64_chunk in enumerate(base64_chunks):
+            try:
+                # Декодируем из Base64
+                encrypted_data = base64.b64decode(base64_chunk)
+
+                # Дешифруем
+                decrypted_chunk = private_key.decrypt(
+                    encrypted_data,
+                    crypto_padding.OAEP(
+                        mgf=crypto_padding.MGF1(algorithm=hash_alg),
+                        algorithm=hash_alg,
+                        label=None
+                    )
+                )
+                decrypted_data.extend(decrypted_chunk)
+
+            except Exception as e:
+                raise ValueError(f"Ошибка дешифрования блока {i}: {str(e)}")
+
+        return bytes(decrypted_data)
 
     def lib_encrypt(self):
-        QMessageBox.information(self, "Информация", "Шифрование будет реализовано позже")
+        try:
+            public_key = self.ensure_public_key()
+            input_text = self.input_edit.toPlainText().strip()
+
+            if not input_text:
+                raise ValueError("Введите текст для шифрования")
+
+            self.set_status("Шифрование...")
+            QApplication.processEvents()
+
+            # Преобразуем текст в байты
+            data_bytes = input_text.encode('utf-8')
+
+            # Шифруем данные
+            encrypted_chunks = self._chunk_encrypt(public_key, data_bytes)
+
+            # Формируем результат
+            result = '\n'.join(encrypted_chunks)
+
+            self.output_edit.setPlainText(result)
+            self.set_status(f"✅ Зашифровано {len(encrypted_chunks)} блок(ов)")
+            self.set_info(f"Исходный размер: {len(data_bytes)} байт\nЗашифровано блоков: {len(encrypted_chunks)}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Ошибка", f"Ошибка шифрования:\n{str(e)}")
+            self.set_status("Ошибка шифрования")
 
     def lib_decrypt(self):
-        QMessageBox.information(self, "Информация", "Дешифрование будет реализовано позже")
+        try:
+            private_key = self.ensure_private_key()
+            input_text = self.input_edit.toPlainText().strip()
+
+            if not input_text:
+                raise ValueError("Введите Base64 блоки для дешифрования")
+
+            self.set_status("Дешифрование...")
+            QApplication.processEvents()
+
+            # Разбиваем вход на строки (каждая строка - отдельный блок)
+            lines = [line.strip() for line in input_text.split('\n') if line.strip()]
+
+            if not lines:
+                raise ValueError("Нет данных для дешифрования")
+
+            # Проверяем, что все строки - валидный Base64
+            for i, line in enumerate(lines):
+                try:
+                    base64.b64decode(line)
+                except:
+                    raise ValueError(f"Строка {i + 1} содержит невалидный Base64")
+
+            # Дешифруем данные
+            decrypted_data = self._chunk_decrypt(private_key, lines)
+
+            # Пытаемся декодировать как текст
+            try:
+                result = decrypted_data.decode('utf-8')
+            except UnicodeDecodeError:
+                # Если не получается декодировать как UTF-8, показываем как hex
+                result = f"[Бинарные данные, размер: {len(decrypted_data)} байт]\n" + decrypted_data.hex()
+
+            self.output_edit.setPlainText(result)
+            self.set_status("✅ Расшифровано успешно")
+            self.set_info(f"Расшифровано блоков: {len(lines)}\nРазмер данных: {len(decrypted_data)} байт")
+
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Ошибка", f"Ошибка дешифрования:\n{str(e)}")
+            self.set_status("Ошибка дешифрования")
 
     def load_library_input_file(self):
-        QMessageBox.information(self, "Информация", "Загрузка файла будет реализована позже")
+        path, _ = QFileDialog.getOpenFileName(self, "Загрузить входные данные", "", "Text Files (*.txt);;All Files (*)")
+        if not path:
+            return
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            if not content.strip():
+                QMessageBox.warning(self, "⚠️ Внимание", "Файл пуст.")
+                return
+
+            self.input_edit.setPlainText(content)
+            self.set_status("✅ Входные данные загружены")
+
+            # Автоматически определяем тип данных
+            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            if len(lines) > 1 or (len(lines) == 1 and len(lines[0]) > 100):
+                self.set_info("Обнаружены Base64 блоки шифротекста")
+            else:
+                self.set_info("Обнаружен обычный текст")
+
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Ошибка", f"Ошибка загрузки файла:\n{str(e)}")
 
     def save_library_output_file(self):
-        QMessageBox.information(self, "Информация", "Сохранение файла будет реализована позже")
+        content = self.output_edit.toPlainText().strip()
+        if not content:
+            QMessageBox.warning(self, "⚠️ Внимание", "Нет данных для сохранения.")
+            return
 
+        path, _ = QFileDialog.getSaveFileName(self, "Сохранить выходные данные", "",
+                                              "Text Files (*.txt);;All Files (*)")
+        if not path:
+            return
+
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            self.set_status("✅ Выходные данные сохранены")
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Ошибка", f"Ошибка сохранения:\n{str(e)}")
 
 # -------------------- Главное окно --------------------
 class CryptoSuite(QMainWindow):

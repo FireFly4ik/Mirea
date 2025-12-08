@@ -18,27 +18,20 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5668ccfb-c460-4331-8e8c-c2decb1c8482" name="Changes" comment="bebebe">
+    <list default="true" id="5668ccfb-c460-4331-8e8c-c2decb1c8482" name="Changes" comment="bbb">
+      <change afterPath="$PROJECT_DIR$/.idea/copilot.data.migration.agent.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/copilot.data.migration.ask.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/copilot.data.migration.ask2agent.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/copilot.data.migration.edit.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FrontBack/1 sem/4kr/src/components/pages/home/TaskCard/TaskCard.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/FrontBack/1 sem/4kr/src/components/pages/home/TaskCard/TaskCard.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr" beforeDir="false" afterPath="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ДБ/1 сем/db_kr_1" beforeDir="false" afterPath="$PROJECT_DIR$/ДБ/1 сем/db_kr_1" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ДБ/1 сем/db_kr_1/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/ДБ/1 сем/db_kr_1/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ДБ/1 сем/db_kr_2/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/ДБ/1 сем/db_kr_2/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/6.py" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/6.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/eratosthenes_sieve.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/fermat_factorization.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/fermat_factorization.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/lehmann_23.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/lehmann_23.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/lehmann_45.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/lehmann_45.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/lehmann_67.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/lehmann_67.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/lehmann_89.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/lehmann_89.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/rabin_miller_23.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/rabin_miller_23.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/rabin_miller_45.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/rabin_miller_45.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/rabin_miller_67.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/rabin_miller_67.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/rabin_miller_89.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/rabin_miller_89.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/solovay_strassen_23.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/solovay_strassen_23.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/solovay_strassen_45.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/solovay_strassen_45.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/solovay_strassen_67.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/solovay_strassen_67.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/solovay_strassen_89.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr/solovay_strassen_89.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ДПО/ФронтБэк/2pr/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/ДПО/ФронтБэк/2pr/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ДПО/ФронтБэк/2pr/assets/styles/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/ДПО/ФронтБэк/2pr/assets/styles/index.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Дискретка/2 сем/КР3/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/Дискретка/2 сем/КР3/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -52,14 +45,16 @@
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="HTML File" />
+        <option value="JavaScript File" />
         <option value="CSS File" />
+        <option value="JSX File" />
         <option value="Python Script" />
       </list>
     </option>
   </component>
   <component name="GOROOT" url="file:///usr/local/go" />
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/ДПО/ФронтБэк/2pr" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -237,7 +232,11 @@
     &quot;DefaultHtmlFileTemplate&quot;: &quot;HTML File&quot;,
     &quot;JavaScript Debug.index.html.executor&quot;: &quot;Run&quot;,
     &quot;JavaScript Debug.projects.html.executor&quot;: &quot;Run&quot;,
+    &quot;Node.js.App.js.executor&quot;: &quot;Run&quot;,
+    &quot;Node.js.HomePage.jsx.executor&quot;: &quot;Run&quot;,
     &quot;Python.6.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.temp.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.RadMigrateCodeStyle&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
@@ -247,6 +246,7 @@
     &quot;RunOnceActivity.go.migrated.go.modules.settings&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.go.modules.go.list.on.any.changes.was.set&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
     &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
@@ -254,26 +254,30 @@
     &quot;go.import.settings.migrated&quot;: &quot;true&quot;,
     &quot;go.sdk.automatically.set&quot;: &quot;true&quot;,
     &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/firefly4ik/Codes/Mirea&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/firefly4ik/Codes/Mirea/FrontBack/1 sem/4kr/src/components/OrderNotes&quot;,
     &quot;list.type.of.created.stylesheet&quot;: &quot;CSS&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.keymap&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
     &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/Applications/WebStorm.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/FrontBack/1 sem/4kr/src/components/OrderNotes" />
       <recent name="$PROJECT_DIR$/FrontBack/1 sem/2kr/assets" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/FrontBack/1 sem/2kr/images/icons" />
-      <recent name="$PROJECT_DIR$/FrontBack/1 sem/2kr" />
-      <recent name="$PROJECT_DIR$/FrontBack/1 sem/2kr/src/img" />
+      <recent name="$PROJECT_DIR$/ДПО/ФронтБэк/2pr" />
+      <recent name="$PROJECT_DIR$/FrontBack/1 sem/4kr/src/components/pages/statistics" />
+      <recent name="$PROJECT_DIR$/FrontBack/1 sem/4kr/src/components/pages/home" />
+      <recent name="$PROJECT_DIR$/FrontBack/1 sem/4kr/src/components/pages/" />
+      <recent name="$PROJECT_DIR$/FrontBack/1 sem/4kr/src/components" />
     </key>
   </component>
   <component name="RunManager">
@@ -283,12 +287,34 @@
         <option name="com.jetbrains.cidr.cpp.runfile.CppFileBuildBeforeRunTaskProvider$BasicBuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
+    <configuration name="temp" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Mirea" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Temp" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Temp/temp.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-PY-242.23339.19" />
-        <option value="bundled-python-sdk-0029f7779945-399fe30bd8c1-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.23339.19" />
+        <option value="bundled-js-predefined-d6986cc7102b-a71380e98a7c-JavaScript-WS-252.28238.10" />
       </set>
     </attachedChunks>
   </component>
@@ -314,7 +340,33 @@
       <workItem from="1761289978029" duration="249000" />
       <workItem from="1761391490513" duration="16000" />
       <workItem from="1761393432739" duration="3000" />
-      <workItem from="1761406872216" duration="628000" />
+      <workItem from="1761406872216" duration="1747000" />
+      <workItem from="1761556046146" duration="4000" />
+      <workItem from="1761996632502" duration="711000" />
+      <workItem from="1763807946825" duration="5237000" />
+      <workItem from="1763817201453" duration="4769000" />
+      <workItem from="1763925104427" duration="1503000" />
+      <workItem from="1763927199473" duration="2612000" />
+      <workItem from="1763931072731" duration="32736000" />
+      <workItem from="1764164512235" duration="2176000" />
+      <workItem from="1764225159100" duration="1889000" />
+      <workItem from="1764273311395" duration="3144000" />
+      <workItem from="1764313889041" duration="86000" />
+      <workItem from="1764411180767" duration="533000" />
+      <workItem from="1764428106401" duration="4181000" />
+      <workItem from="1764581934182" duration="434000" />
+      <workItem from="1764582380579" duration="137000" />
+      <workItem from="1764582539709" duration="974000" />
+      <workItem from="1764607477563" duration="8985000" />
+      <workItem from="1764706050438" duration="37716000" />
+      <workItem from="1764881821241" duration="1563000" />
+      <workItem from="1764921006094" duration="76000" />
+      <workItem from="1765141097642" duration="253000" />
+      <workItem from="1765141788804" duration="2126000" />
+      <workItem from="1765146438701" duration="2178000" />
+      <workItem from="1765150376415" duration="956000" />
+      <workItem from="1765213657304" duration="287000" />
+      <workItem from="1765213954209" duration="2623000" />
     </task>
     <task id="LOCAL-00001" summary="bebebe">
       <option name="closed" value="true" />
@@ -340,24 +392,136 @@
       <option name="project" value="LOCAL" />
       <updated>1761207810039</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="bebebe">
+      <option name="closed" value="true" />
+      <created>1761407514796</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1761407514796</updated>
+    </task>
+    <task id="LOCAL-00005" summary="bebebe">
+      <option name="closed" value="true" />
+      <created>1761407631422</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1761407631422</updated>
+    </task>
+    <task id="LOCAL-00006" summary="добавлено кр3 дискретка">
+      <option name="closed" value="true" />
+      <created>1763813518296</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1763813518296</updated>
+    </task>
+    <task id="LOCAL-00007" summary="refactor: updated all code to comply with W3C guidelines.">
+      <option name="closed" value="true" />
+      <created>1764102898741</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1764102898741</updated>
+    </task>
+    <task id="LOCAL-00008" summary="feat: added animations for rsaTab">
+      <option name="closed" value="true" />
+      <created>1764276456319</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1764276456319</updated>
+    </task>
+    <task id="LOCAL-00009" summary="feat: flex and grid">
+      <option name="closed" value="true" />
+      <created>1764313967537</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1764313967537</updated>
+    </task>
+    <task id="LOCAL-00010" summary="bbb">
+      <option name="closed" value="true" />
+      <created>1764428888856</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1764428888856</updated>
+    </task>
+    <task id="LOCAL-00011" summary="bbb">
+      <option name="closed" value="true" />
+      <created>1765224324088</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1765224324088</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="roots">
+                    <value>
+                      <list>
+                        <option value="$PROJECT_DIR$/Элитка/Fusion" />
+                        <option value="$PROJECT_DIR$/Дискретка/2 сем/КР1" />
+                        <option value="$PROJECT_DIR$/Элитка/HypeOrStrem" />
+                        <option value="$PROJECT_DIR$/FrontBack/1 sem/3-4 pr" />
+                        <option value="$PROJECT_DIR$/ДПО/ФронтБэк/1pr" />
+                        <option value="$PROJECT_DIR$/ДБ/1 сем/db_kr_1" />
+                        <option value="$PROJECT_DIR$/Технологии индустриального программирования/3 сем/4kr" />
+                        <option value="$PROJECT_DIR$/FrontBack/1 sem/1-2 pr" />
+                        <option value="$PROJECT_DIR$" />
+                        <option value="$PROJECT_DIR$/Элитка/cafeAPI" />
+                        <option value="$PROJECT_DIR$/ДПО/ФронтБэк/2pr" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsManagerConfiguration">
     <ignored-roots>
       <path value="$PROJECT_DIR$/.." />
     </ignored-roots>
     <MESSAGE value="bebebe" />
-    <option name="LAST_COMMIT_MESSAGE" value="bebebe" />
+    <MESSAGE value="добавлено кр3 дискретка" />
+    <MESSAGE value="refactor: updated all code to comply with W3C guidelines." />
+    <MESSAGE value="feat: added animations for rsaTab" />
+    <MESSAGE value="feat: flex and grid" />
+    <MESSAGE value="bbb" />
+    <option name="LAST_COMMIT_MESSAGE" value="bbb" />
   </component>
   <component name="VgoProject">
     <integration-enabled>false</integration-enabled>
     <settings-migrated>true</settings-migrated>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/Mirea$6.coverage" NAME="6 Coverage Results" MODIFIED="1761407370063" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr" />
+    <SUITE FILE_PATH="coverage/Mirea$6.coverage" NAME="6 Coverage Results" MODIFIED="1761407607519" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Дискретка/2 сем/КР2/6pr" />
+    <SUITE FILE_PATH="coverage/Mirea$main.coverage" NAME="main Coverage Results" MODIFIED="1764882807535" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Дискретка/2 сем/КР3" />
+    <SUITE FILE_PATH="coverage/Mirea$temp.coverage" NAME="temp Coverage Results" MODIFIED="1765151323194" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Temp" />
+  </component>
+  <component name="github-copilot-workspace">
+    <instructionFileLocations>
+      <option value=".github/instructions" />
+    </instructionFileLocations>
+    <promptFileLocations>
+      <option value=".github/prompts" />
+    </promptFileLocations>
   </component>
 </project>

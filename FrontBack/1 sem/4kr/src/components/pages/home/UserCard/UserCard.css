@@ -1,0 +1,38 @@
+.user-card {
+    display: flex;
+    gap: 20px;
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.avatar-section {
+    text-align: center;
+}
+.avatar-section img {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #667eea;
+}
+.user-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.user-info h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-weight: bold;
+    font-size: 2rem;
+}
+.user-info p {
+    margin: 0;
+    color: #666;
+}

@@ -423,49 +423,6 @@ class GammaTab(QWidget):
 
         left_layout.addWidget(control_group)
 
-        # Группа анимации
-        anim_group = QGroupBox("Анимация")
-        anim_layout = QVBoxLayout(anim_group)
-
-        anim_btns = QHBoxLayout()
-        self.btn_anim_encrypt = QPushButton("▶ Шифр.")
-        self.btn_anim_decrypt = QPushButton("▶ Дешифр.")
-        self.btn_anim_pause = QPushButton("⏸")
-        self.btn_anim_step = QPushButton("⏭")
-        self.btn_anim_stop = QPushButton("⏹")
-        for b in (self.btn_anim_pause, self.btn_anim_step, self.btn_anim_stop):
-            b.setEnabled(False)
-        self.btn_anim_encrypt.clicked.connect(lambda: self.start_animation('encrypt'))
-        self.btn_anim_decrypt.clicked.connect(lambda: self.start_animation('decrypt'))
-        self.btn_anim_pause.clicked.connect(self.toggle_pause)
-        self.btn_anim_step.clicked.connect(self.animation_step_manual)
-        self.btn_anim_stop.clicked.connect(self.stop_animation)
-        anim_btns.addWidget(self.btn_anim_encrypt)
-        anim_btns.addWidget(self.btn_anim_decrypt)
-        anim_btns.addWidget(self.btn_anim_pause)
-        anim_btns.addWidget(self.btn_anim_step)
-        anim_btns.addWidget(self.btn_anim_stop)
-        anim_layout.addLayout(anim_btns)
-
-        speed_layout = QHBoxLayout()
-        speed_layout.addWidget(QLabel("Скорость:"))
-        self.speed_slider = QSlider(Qt.Horizontal)
-        self.speed_slider.setRange(1, 10)
-        self.speed_slider.setValue(5)
-        self.speed_slider.valueChanged.connect(self.update_timer_interval)
-        speed_layout.addWidget(self.speed_slider)
-        anim_layout.addLayout(speed_layout)
-
-        progress_layout = QHBoxLayout()
-        self.progress = QProgressBar()
-        self.progress.setMinimum(0)
-        progress_layout.addWidget(self.progress)
-        self.current_block_label = QLabel("Блок: 0")
-        progress_layout.addWidget(self.current_block_label)
-        anim_layout.addLayout(progress_layout)
-
-        left_layout.addWidget(anim_group)
-
         # Группа лога
         log_group = QGroupBox("Лог операций")
         log_layout = QVBoxLayout(log_group)
@@ -518,17 +475,6 @@ class GammaTab(QWidget):
         main_layout.addWidget(right_panel)
 
         self.last_gamma = b""
-        self.animation_timer = QTimer(self)
-        self.animation_timer.timeout.connect(self.animation_step)
-        self.animation_running = False
-        self.animation_paused = False
-        self.animation_mode = None
-        self.animation_data = None
-        self.animation_gen = None
-        self.animation_index = 0
-        self.animation_total = 0
-        self.animation_output = bytearray()
-        self.animation_full_gamma = bytearray()
 
         self.on_gen_changed(0)
 
@@ -739,123 +685,6 @@ class GammaTab(QWidget):
                 QMessageBox.information(self, "OK", "Лог сохранен")
             except Exception as e:
                 QMessageBox.critical(self, "Ошибка", str(e))
-
-    def update_timer_interval(self):
-        self.animation_timer.setInterval(1100 - self.speed_slider.value() * 100)
-
-    def start_animation(self, mode):
-        if self.animation_running: return
-        txt = self.input_text.toPlainText().strip()
-        if not txt: return
-        try:
-            if mode == 'decrypt':
-                try:
-                    self.animation_data = bytes.fromhex(txt)
-                except:
-                    self.animation_data = txt.encode('utf-8')
-            else:
-                self.animation_data = txt.encode('utf-8')
-
-            self.animation_gen = self.get_generator()
-            self.animation_mode = mode
-            self.animation_index = 0
-            self.animation_total = math.ceil(len(self.animation_data) / 8)
-            self.animation_output = bytearray()
-            self.animation_full_gamma = bytearray()
-
-            self.log_text.clear()
-            self.output_text.clear()
-
-            self.progress.setMaximum(self.animation_total)
-            self.progress.setValue(0)
-            self.animation_running = True
-            self.animation_paused = False
-            self.btn_show_gamma.setEnabled(False)
-
-            self.btn_anim_pause.setEnabled(True)
-            self.btn_anim_step.setEnabled(True)
-            self.btn_anim_stop.setEnabled(True)
-            self.btn_anim_encrypt.setEnabled(False)
-            self.btn_anim_decrypt.setEnabled(False)
-
-            self.update_timer_interval()
-            self.animation_timer.start()
-        except Exception as e:
-            QMessageBox.critical(self, "Err", str(e))
-
-    def animation_step(self):
-        if self.animation_running and not self.animation_paused:
-            self._do_step()
-
-    def animation_step_manual(self):
-        if self.animation_running:
-            self.animation_timer.stop()
-            self.animation_paused = True
-            self._do_step()
-
-    def toggle_pause(self):
-        if not self.animation_running: return
-        self.animation_paused = not self.animation_paused
-        if self.animation_paused:
-            self.animation_timer.stop()
-        else:
-            self.animation_timer.start()
-
-    def stop_animation(self):
-        self.animation_running = False
-        self.animation_timer.stop()
-        self.btn_anim_pause.setEnabled(False)
-        self.btn_anim_step.setEnabled(False)
-        self.btn_anim_stop.setEnabled(False)
-        self.btn_anim_encrypt.setEnabled(True)
-        self.btn_anim_decrypt.setEnabled(True)
-        self.last_gamma = self.animation_full_gamma
-        self.btn_show_gamma.setEnabled(True)
-
-    def _do_step(self):
-        if self.animation_index >= self.animation_total:
-            self.stop_animation()
-            return
-
-        start = self.animation_index * 8
-        block = self.animation_data[start:start + 8]
-        gen = self.animation_gen
-
-        info = f"{gen.get_formula_info()} = {gen.next()}\n    {gen.get_params_description()}"
-
-        gamma = bytearray([gen.state & 0xFF])
-        for _ in range(len(block) - 1):
-            gamma.append(gen.next() & 0xFF)
-
-        out = bytes(b ^ g for b, g in zip(block, gamma))
-
-        self.animation_output.extend(out)
-        self.animation_full_gamma.extend(gamma)
-
-        inp_chars = bytes_to_printable_utf8(block)
-        out_chars = bytes_to_printable_utf8(out)
-
-        log_entry = (
-            f"Block {self.animation_index}:\n"
-            f"  Info:  {info}\n"
-            f"  Text:  '{inp_chars}'\n"
-            f"  InHex: {block.hex()}\n"
-            f"  Gamma: {gamma.hex()}\n"
-            f"  Out:   {out.hex()} -> '{out_chars}'"
-        )
-        self.log_text.append(log_entry + "\n-----------------")
-
-        if self.animation_mode == 'encrypt':
-            self.output_text.setPlainText(self.animation_output.hex())
-        else:
-            self.output_text.setPlainText(bytes_to_printable_utf8(self.animation_output))
-
-        self.animation_index += 1
-        self.progress.setValue(self.animation_index)
-        self.current_block_label.setText(f"Блок: {self.animation_index}")
-
-        if self.animation_index >= self.animation_total:
-            self.stop_animation()
 
 
 # -------------------- ModArithmeticTab --------------------
@@ -1344,45 +1173,6 @@ class RSATab(QWidget):
 
         left_layout.addWidget(ops_group)
 
-        # Группа анимации
-        anim_group = QGroupBox("Анимация")
-        anim_layout = QVBoxLayout(anim_group)
-
-        anim_btns_layout = QHBoxLayout()
-        self.btn_anim_enc = QPushButton("▶ Шифрование")
-        self.btn_anim_dec = QPushButton("▶ Дешифрование")
-        self.btn_anim_pause = QPushButton("⏸ Пауза")
-        self.btn_anim_step = QPushButton("⏭ Шаг")
-        self.btn_anim_stop = QPushButton("⏹ Стоп")
-        for b in (self.btn_anim_pause, self.btn_anim_step, self.btn_anim_stop):
-            b.setEnabled(False)
-        anim_btns_layout.addWidget(self.btn_anim_enc)
-        anim_btns_layout.addWidget(self.btn_anim_dec)
-        anim_btns_layout.addWidget(self.btn_anim_pause)
-        anim_btns_layout.addWidget(self.btn_anim_step)
-        anim_btns_layout.addWidget(self.btn_anim_stop)
-        anim_layout.addLayout(anim_btns_layout)
-
-        speed_layout = QHBoxLayout()
-        speed_layout.addWidget(QLabel("Скорость:"))
-        self.rsa_speed_slider = QSlider(Qt.Horizontal)
-        self.rsa_speed_slider.setRange(1, 10)
-        self.rsa_speed_slider.setValue(5)
-        self.rsa_speed_slider.valueChanged.connect(self.update_rsa_timer_interval)
-        speed_layout.addWidget(self.rsa_speed_slider)
-        anim_layout.addLayout(speed_layout)
-
-        progress_layout = QHBoxLayout()
-        self.rsa_progress = QProgressBar()
-        self.rsa_progress.setMinimum(0)
-        self.rsa_progress.setValue(0)
-        progress_layout.addWidget(self.rsa_progress)
-        self.rsa_current_block_label = QLabel("Блок: -")
-        progress_layout.addWidget(self.rsa_current_block_label)
-        anim_layout.addLayout(progress_layout)
-
-        left_layout.addWidget(anim_group)
-
         # Группа лога
         log_group = QGroupBox("Лог операций")
         log_layout = QVBoxLayout(log_group)
@@ -1464,256 +1254,10 @@ class RSATab(QWidget):
         self.last_cipher_payload = None
         self.last_output_kind = None
 
-        self.rsa_anim_timer = QTimer(self)
-        self.rsa_anim_timer.timeout.connect(self.rsa_animation_step)
-        self.rsa_anim_running = False
-        self.rsa_anim_paused = False
-        self.rsa_anim_mode = None
-        self.rsa_anim_plain_blocks = []
-        self.rsa_anim_plain_lengths = []
-        self.rsa_anim_cipher_blocks = []
-        self.rsa_anim_index = 0
-        self.rsa_cipher_block_bytes = None
-
-        self.btn_anim_enc.clicked.connect(lambda: self.start_rsa_animation('encrypt'))
-        self.btn_anim_dec.clicked.connect(lambda: self.start_rsa_animation('decrypt'))
-        self.btn_anim_pause.clicked.connect(self.toggle_rsa_pause)
-        self.btn_anim_step.clicked.connect(self.rsa_animation_step_manual)
-        self.btn_anim_stop.clicked.connect(self.stop_rsa_animation)
-
         self.on_key_mode_changed(0)
         self.on_generation_method_changed(0)
 
-    # Добавляем недостающие методы для анимации
-    def start_rsa_animation(self, mode):
-        if self.rsa_anim_running:
-            QMessageBox.warning(self, "Внимание", "Анимация уже запущена")
-            return
 
-        if self.N is None:
-            QMessageBox.warning(self, "Ошибка", "Сначала установите ключи RSA")
-            return
-
-        content = self.input_text_edit.toPlainText().strip()
-        if not content:
-            QMessageBox.warning(self, "Ошибка", "Введите данные для обработки")
-            return
-
-        try:
-            self.rsa_anim_mode = mode
-            self.log_text_edit.append(f"[Анимация] Запуск {mode}")
-
-            if mode == 'encrypt':
-                # Подготовка данных для шифрования
-                if self.detect_input_type(content) != 'text':
-                    raise ValueError("Для шифрования нужен текст")
-
-                self.rsa_anim_plain_blocks, self.block_bytes, self.rsa_anim_plain_lengths, self.total_plain_bytes = encode_text_to_blocks(
-                    content, self.N)
-                self.e_val = int(self.e_edit.text())
-                self.rsa_anim_cipher_blocks = []
-                self.rsa_cipher_block_bytes = (self.N.bit_length() + 7) // 8
-                total_blocks = len(self.rsa_anim_plain_blocks)
-
-            else:  # decrypt
-                # Подготовка данных для дешифрования
-                input_type = self.detect_input_type(content)
-                if input_type == 'compact_hex':
-                    self.rsa_anim_cipher_blocks = compact_hex_to_blocks(content, self.N)
-                elif input_type == 'blocks':
-                    self.rsa_anim_cipher_blocks = parse_numbers(content)
-                else:
-                    raise ValueError("Для дешифрования нужен компактный HEX или список чисел")
-
-                self.rsa_cipher_block_bytes = (self.N.bit_length() + 7) // 8
-                self.rsa_anim_plain_blocks = []
-                self.rsa_anim_plain_lengths = []
-                total_blocks = len(self.rsa_anim_cipher_blocks)
-
-            # Настройка анимации
-            self.rsa_anim_index = 0
-            self.rsa_progress.setMaximum(total_blocks)
-            self.rsa_progress.setValue(0)
-            self.rsa_current_block_label.setText("Блок: 0")
-            self.output_text_edit.clear()
-
-            # Запуск анимации
-            self.rsa_anim_running = True
-            self.rsa_anim_paused = False
-
-            # Включение/выключение кнопок
-            self.btn_anim_pause.setEnabled(True)
-            self.btn_anim_step.setEnabled(True)
-            self.btn_anim_stop.setEnabled(True)
-            self.btn_anim_enc.setEnabled(False)
-            self.btn_anim_dec.setEnabled(False)
-
-            self.update_rsa_timer_interval()
-            self.rsa_anim_timer.start()
-
-        except Exception as e:
-            QMessageBox.critical(self, "Ошибка", f"Ошибка запуска анимации: {str(e)}")
-
-    def update_rsa_timer_interval(self):
-        val = self.rsa_speed_slider.value()
-        interval = 1100 - val * 100
-        if interval < 50:
-            interval = 50
-        self.rsa_anim_timer.setInterval(interval)
-
-    def rsa_animation_step(self):
-        if self.rsa_anim_running and not self.rsa_anim_paused:
-            self._do_rsa_animation_step()
-
-    def rsa_animation_step_manual(self):
-        if self.rsa_anim_running:
-            self.rsa_anim_timer.stop()
-            self.rsa_anim_paused = True
-            self.btn_anim_pause.setText("▶ Продолжить")
-            self._do_rsa_animation_step()
-
-    def _do_rsa_animation_step(self):
-        if self.rsa_anim_mode == 'encrypt':
-            self._do_encryption_step()
-        else:
-            self._do_decryption_step()
-
-    def _do_encryption_step(self):
-        if self.rsa_anim_index >= len(self.rsa_anim_plain_blocks):
-            self.finish_rsa_animation()
-            return
-
-        # Получаем текущий блок
-        m = self.rsa_anim_plain_blocks[self.rsa_anim_index]
-        m_len = self.rsa_anim_plain_lengths[self.rsa_anim_index]
-
-        # Показываем информацию о блоке
-        try:
-            m_bytes = m.to_bytes(m_len, 'big')
-        except OverflowError:
-            actual_len = (m.bit_length() + 7) // 8
-            m_bytes = m.to_bytes(actual_len, 'big')
-        m_text = bytes_to_printable_utf8(m_bytes)
-
-        # Шифруем блок
-        c = mod_exp(m, self.e_val, self.N)
-        self.rsa_anim_cipher_blocks.append(c)
-
-        # Обновляем вывод
-        current_hex = blocks_to_compact_hex(self.rsa_anim_cipher_blocks, self.N)
-        self.output_text_edit.setPlainText(current_hex)
-
-        # Логируем процесс
-        self.log_text_edit.append(f"--- Блок {self.rsa_anim_index} ---")
-        self.log_text_edit.append(f"Исходный текст (M): {m}")
-        self.log_text_edit.append(f"Текст как байты: {m_bytes.hex().upper()} -> '{m_text}'")
-        self.log_text_edit.append(f"Шифрование: {m}^{self.e_val} mod {self.N} = {c}")
-        self.log_text_edit.append(f"Результат (C): {c}")
-        self.log_text_edit.append("")
-
-        # Обновляем прогресс
-        self.rsa_anim_index += 1
-        self.rsa_progress.setValue(self.rsa_anim_index)
-        self.rsa_current_block_label.setText(f"Блок: {self.rsa_anim_index}")
-
-        # Проверяем завершение
-        if self.rsa_anim_index >= len(self.rsa_anim_plain_blocks):
-            self.finish_rsa_animation()
-
-    def _do_decryption_step(self):
-        if self.rsa_anim_index >= len(self.rsa_anim_cipher_blocks):
-            self.finish_rsa_animation()
-            return
-
-        # Получаем текущий блок
-        c = self.rsa_anim_cipher_blocks[self.rsa_anim_index]
-
-        # Дешифруем блок
-        m = mod_exp(c, self.d, self.N)
-        self.rsa_anim_plain_blocks.append(m)
-
-        # Обновляем вывод
-        pb_len = self.block_bytes or max(1, (self.N.bit_length() - 1) // 8)
-        text_so_far = decode_blocks_to_text_precise(self.rsa_anim_plain_blocks, pb_len,
-                                                    self.rsa_anim_plain_lengths, self.total_plain_bytes)
-        self.output_text_edit.setPlainText(text_so_far)
-
-        # Показываем информацию о блоке
-        try:
-            plen = self.rsa_anim_plain_lengths[self.rsa_anim_index] if (self.rsa_anim_plain_lengths and
-                                                                        self.rsa_anim_index < len(
-                        self.rsa_anim_plain_lengths)) else pb_len
-            m_bytes = m.to_bytes(plen, 'big')
-        except OverflowError:
-            actual_len = (m.bit_length() + 7) // 8
-            m_bytes = m.to_bytes(actual_len, 'big')
-        m_text = bytes_to_printable_utf8(m_bytes)
-
-        # Логируем процесс
-        self.log_text_edit.append(f"--- Блок {self.rsa_anim_index} ---")
-        self.log_text_edit.append(f"Шифротекст (C): {c}")
-        self.log_text_edit.append(f"Дешифрование: {c}^{self.d} mod {self.N} = {m}")
-        self.log_text_edit.append(f"Результат (M): {m}")
-        self.log_text_edit.append(f"Текст как байты: {m_bytes.hex().upper()} -> '{m_text}'")
-        self.log_text_edit.append("")
-
-        # Обновляем прогресс
-        self.rsa_anim_index += 1
-        self.rsa_progress.setValue(self.rsa_anim_index)
-        self.rsa_current_block_label.setText(f"Блок: {self.rsa_anim_index}")
-
-        # Проверяем завершение
-        if self.rsa_anim_index >= len(self.rsa_anim_cipher_blocks):
-            self.finish_rsa_animation()
-
-    def toggle_rsa_pause(self):
-        if not self.rsa_anim_running:
-            return
-
-        if self.rsa_anim_paused:
-            self.rsa_anim_paused = False
-            self.btn_anim_pause.setText("⏸ Пауза")
-            self.rsa_anim_timer.start()
-        else:
-            self.rsa_anim_paused = True
-            self.btn_anim_pause.setText("▶ Продолжить")
-            self.rsa_anim_timer.stop()
-
-    def stop_rsa_animation(self):
-        if not self.rsa_anim_running:
-            return
-
-        self.rsa_anim_timer.stop()
-        self.rsa_anim_running = False
-        self.rsa_anim_paused = False
-
-        # Включение/выключение кнопок
-        self.btn_anim_pause.setEnabled(False)
-        self.btn_anim_step.setEnabled(False)
-        self.btn_anim_stop.setEnabled(False)
-        self.btn_anim_enc.setEnabled(True)
-        self.btn_anim_dec.setEnabled(True)
-        self.btn_anim_pause.setText("⏸ Пауза")
-
-        self.log_text_edit.append("[Анимация] Остановлена пользователем")
-
-    def finish_rsa_animation(self):
-        self.rsa_anim_timer.stop()
-        self.rsa_anim_running = False
-        self.rsa_anim_paused = False
-
-        # Включение/выключение кнопок
-        self.btn_anim_pause.setEnabled(False)
-        self.btn_anim_step.setEnabled(False)
-        self.btn_anim_stop.setEnabled(False)
-        self.btn_anim_enc.setEnabled(True)
-        self.btn_anim_dec.setEnabled(True)
-        self.btn_anim_pause.setText("⏸ Пауза")
-
-        if self.rsa_anim_mode == 'encrypt':
-            self.log_text_edit.append("[Анимация] Шифрование завершено")
-        else:
-            self.log_text_edit.append("[Анимация] Дешифрование завершено")
 
     def detect_input_type(self, content):
         if not content or not content.strip():
@@ -1868,14 +1412,48 @@ class RSATab(QWidget):
                 raise ValueError("Введите текст для шифрования")
 
             # Используем существующую логику шифрования
-            self.blocks, self.block_bytes, self.plain_lengths, self.total_plain_bytes = encode_text_to_blocks(text,
-                                                                                                              self.N)
+            self.blocks, self.block_bytes, self.plain_lengths, self.total_plain_bytes = encode_text_to_blocks(text, self.N)
             e = int(self.e_edit.text())
-            self.cipher_blocks = [mod_exp(m, e, self.N) for m in self.blocks]
+            self.cipher_blocks = []
+            
+            # Очищаем лог
+            self.log_text_edit.clear()
+            self.log_text_edit.append("=== Начало шифрования ===")
+            self.log_text_edit.append(f"Всего блоков для шифрования: {len(self.blocks)}")
+            self.log_text_edit.append(f"Публичная экспонента (e): {e}")
+            self.log_text_edit.append(f"Модуль (N): {self.N}")
+            self.log_text_edit.append("")
+            
+            # Шифруем каждый блок с подробным логированием
+            for idx, m in enumerate(self.blocks):
+                m_len = self.plain_lengths[idx]
+                
+                # Получаем байты блока
+                try:
+                    m_bytes = m.to_bytes(m_len, 'big')
+                except OverflowError:
+                    actual_len = (m.bit_length() + 7) // 8
+                    m_bytes = m.to_bytes(actual_len, 'big')
+                m_text = bytes_to_printable_utf8(m_bytes)
+                
+                # Шифруем блок
+                c = mod_exp(m, e, self.N)
+                self.cipher_blocks.append(c)
+                
+                # Детальное логирование
+                self.log_text_edit.append(f"--- Блок {idx} ---")
+                self.log_text_edit.append(f"Открытый текст: '{m_text}'")
+                self.log_text_edit.append(f"Байты: {m_bytes.hex().upper()}")
+                self.log_text_edit.append(f"Числовое значение (M): {m}")
+                self.log_text_edit.append(f"Операция: M^e mod N = {m}^{e} mod {self.N}")
+                self.log_text_edit.append(f"Зашифрованное значение (C): {c}")
+                self.log_text_edit.append("")
+            
             compact_hex = blocks_to_compact_hex(self.cipher_blocks, self.N)
-
             self.output_text_edit.setPlainText(compact_hex)
-            self.log_text_edit.append("Текст зашифрован")
+            
+            self.log_text_edit.append("=== Шифрование завершено ===")
+            self.log_text_edit.append(f"Результат (компактный HEX): {compact_hex[:100]}..." if len(compact_hex) > 100 else f"Результат (компактный HEX): {compact_hex}")
 
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Ошибка шифрования: {str(e)}")
@@ -1898,12 +1476,46 @@ class RSATab(QWidget):
             else:
                 raise ValueError("Нужен компактный HEX или список чисел")
 
-            plain = [mod_exp(c, self.d, self.N) for c in cblocks]
+            # Очищаем лог
+            self.log_text_edit.clear()
+            self.log_text_edit.append("=== Начало дешифрования ===")
+            self.log_text_edit.append(f"Всего блоков для дешифрования: {len(cblocks)}")
+            self.log_text_edit.append(f"Приватная экспонента (d): {self.d}")
+            self.log_text_edit.append(f"Модуль (N): {self.N}")
+            self.log_text_edit.append("")
+            
+            plain = []
             bb = self.block_bytes or max(1, (self.N.bit_length() - 1) // 8)
+            
+            # Дешифруем каждый блок с подробным логированием
+            for idx, c in enumerate(cblocks):
+                # Дешифруем блок
+                m = mod_exp(c, self.d, self.N)
+                plain.append(m)
+                
+                # Получаем байты блока
+                try:
+                    plen = self.plain_lengths[idx] if (self.plain_lengths and idx < len(self.plain_lengths)) else bb
+                    m_bytes = m.to_bytes(plen, 'big')
+                except OverflowError:
+                    actual_len = (m.bit_length() + 7) // 8
+                    m_bytes = m.to_bytes(actual_len, 'big')
+                m_text = bytes_to_printable_utf8(m_bytes)
+                
+                # Детальное логирование
+                self.log_text_edit.append(f"--- Блок {idx} ---")
+                self.log_text_edit.append(f"Зашифрованное значение (C): {c}")
+                self.log_text_edit.append(f"Операция: C^d mod N = {c}^{self.d} mod {self.N}")
+                self.log_text_edit.append(f"Расшифрованное значение (M): {m}")
+                self.log_text_edit.append(f"Байты: {m_bytes.hex().upper()}")
+                self.log_text_edit.append(f"Открытый текст: '{m_text}'")
+                self.log_text_edit.append("")
+            
             text = decode_blocks_to_text_precise(plain, bb, self.plain_lengths, self.total_plain_bytes)
-
             self.output_text_edit.setPlainText(text)
-            self.log_text_edit.append("Текст расшифрован")
+            
+            self.log_text_edit.append("=== Дешифрование завершено ===")
+            self.log_text_edit.append(f"Результат: {text[:100]}..." if len(text) > 100 else f"Результат: {text}")
 
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Ошибка дешифрования: {str(e)}")

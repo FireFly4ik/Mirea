@@ -1,0 +1,309 @@
+.add-task-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.add-task-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.page-title {
+    text-align: center;
+    font-size: 2.5em;
+    color: #333;
+    margin: 0;
+}
+
+.import-section {
+    background: white;
+    padding: 25px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.import-button {
+    padding: 15px 30px;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    max-width: 400px;
+    margin-bottom: 10px;
+}
+
+.import-button.json-import {
+    background-color: #48bb78;
+}
+
+.import-button.json-import:hover {
+    background-color: #38a169;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(72, 187, 120, 0.3);
+}
+
+.import-button.api-import {
+    background-color: #667eea;
+}
+
+.import-button.api-import:hover:not(:disabled) {
+    background-color: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.import-button:disabled {
+    background-color: #cbd5e0;
+    cursor: not-allowed;
+}
+
+.import-hint {
+    margin-top: 5px;
+    margin-bottom: 20px;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.form-container {
+    background: white;
+    padding: 30px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-title {
+    text-align: center;
+    color: #333;
+    margin: 0 0 25px 0;
+    font-size: 1.5em;
+}
+
+.task-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #4a5568;
+    font-size: 1em;
+}
+
+.form-group input,
+.form-group textarea {
+    padding: 12px;
+    font-size: 1em;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    transition: border-color 0.3s ease;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.status-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.status-button {
+    flex: 1;
+    min-width: 150px;
+    padding: 12px 16px;
+    font-size: 0.95em;
+    font-weight: 600;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: #f7fafc;
+    color: #4a5568;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.status-button:hover {
+    background-color: #edf2f7;
+    border-color: #cbd5e0;
+    transform: translateY(-2px);
+}
+
+.status-button.not-started.active {
+    background-color: #fc8181;
+    color: white;
+    border-color: #fc8181;
+}
+
+.status-button.in-progress.active {
+    background-color: #f6ad55;
+    color: white;
+    border-color: #f6ad55;
+}
+
+.status-button.completed.active {
+    background-color: #68d391;
+    color: white;
+    border-color: #68d391;
+}
+
+.status-button.active {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.submit-button,
+.cancel-button {
+    flex: 1;
+    padding: 14px 24px;
+    font-size: 1.1em;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.submit-button {
+    background-color: #48bb78;
+    color: white;
+}
+
+.submit-button:hover {
+    background-color: #38a169;
+    transform: translateY(-2px);
+}
+
+.cancel-button {
+    background-color: #f7fafc;
+    color: #4a5568;
+    border: 2px solid #e0e0e0;
+}
+
+.cancel-button:hover {
+    background-color: #edf2f7;
+    border-color: #cbd5e0;
+    transform: translateY(-2px);
+}
+
+.import-modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.import-instruction {
+    margin: 0;
+    padding: 12px;
+    background-color: #f0f5ff;
+    border-left: 4px solid #667eea;
+    border-radius: 4px;
+    color: #2d3748;
+    font-size: 0.9em;
+}
+
+.import-textarea {
+    width: 96%;
+    min-height: 300px;
+    padding: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    background-color: #f7fafc;
+    color: #2d3748;
+    resize: vertical;
+    overflow-y: auto;
+}
+
+.import-textarea:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.import-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.import-confirm-button,
+.import-cancel-button {
+    flex: 1;
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: none;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.import-confirm-button {
+    background-color: #48bb78;
+    color: white;
+}
+
+.import-confirm-button:hover {
+    background-color: #38a169;
+    transform: translateY(-2px);
+}
+
+.import-cancel-button {
+    background-color: #f7fafc;
+    color: #4a5568;
+    border: 2px solid #e0e0e0;
+}
+
+.import-cancel-button:hover {
+    background-color: #edf2f7;
+    border-color: #cbd5e0;
+    transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+    .status-buttons {
+        flex-direction: column;
+    }
+    
+    .status-button {
+        min-width: 100%;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .page-title {
+        font-size: 2em;
+    }
+}
